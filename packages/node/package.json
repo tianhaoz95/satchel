@@ -1,0 +1,18 @@
+{
+  "name": "@satchel/node",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "satchel": "./src/cli.ts" },
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@satchel/core": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "acme-client": "^5.4.0",
+    "express": "^5.1.0",
+    "qrcode": "^1.5.4",
+    "selfsigned": "^5.5.0",
+    "web-push": "^3.6.7",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": { "@types/express": "^5.0.0", "@types/qrcode": "^1.5.5", "@types/web-push": "^3.6.4" }
+}

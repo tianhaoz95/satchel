@@ -1,0 +1,22 @@
+name: Deploy hosted relay
+on:
+  workflow_run:
+    workflows: ["Container images"]
+    types: [completed]
+  workflow_dispatch:
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Pull and restart the relay on the relay host
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.RELAY_HOST }}
+          username: ${{ secrets.RELAY_USER }}
+          key: ${{ secrets.RELAY_SSH_KEY }}
+          script: |
+            cd /opt/satchel-relay
+            docker compose pull && docker compose up -d
+            curl -fsS --resolve relay.${{ vars.RELAY_DOMAIN }}:443:127.0.0.1 https://relay.${{ vars.RELAY_DOMAIN }}/healthz

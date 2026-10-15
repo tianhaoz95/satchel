@@ -1,0 +1,14 @@
+# Self-hosted Satchel relay. Point *.<domain> and relay.<domain> at this host.
+services:
+  relay:
+    image: ghcr.io/tianhaoz95/satchel-relay:latest
+    restart: unless-stopped
+    ports: ["443:443", "7443:7443"]
+    environment:
+      SATCHEL_RELAY_DOMAIN: vault.example.com
+      SATCHEL_RELAY_API_HOST: relay.vault.example.com
+      SATCHEL_RELAY_TLS_CERT: /certs/relay.pem
+      SATCHEL_RELAY_TLS_KEY: /certs/relay.key
+      SATCHEL_RELAY_NODES_FILE: /data/nodes.json
+      # CLOUDFLARE_ZONE_ID / CLOUDFLARE_API_TOKEN enable real certificates for nodes (DNS-01)
+    volumes: ["./certs:/certs:ro", "./data:/data"]

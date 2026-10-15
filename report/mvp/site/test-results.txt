@@ -1,0 +1,22 @@
+✔ date-like keys are indexed, month precision is normalized (1.086125ms)
+✔ masking follows policy patterns and explicit sensitive keys (0.376792ms)
+✔ sensitive markers can only grow (0.112459ms)
+✔ sidecars round-trip as plain YAML next to the file (6.877584ms)
+✔ vault paths cannot escape their root or touch reserved files (4.169916ms)
+✔ SNI is parsed from a real TLS ClientHello (12.656084ms)
+✔ rejects requests without a token, advertising OAuth metadata (273.76575ms)
+✔ agent workflow: discover, annotate, query, masking, redaction (76.966375ms)
+✔ reveal needs the owner's approval and can be picked up once (20.111875ms)
+✔ deliver_to_user sends the value to the owner, not the agent (8.017875ms)
+✔ reorganization: plan, approve, journal, undo (29.59925ms)
+✔ scopes are enforced per connection (19.496458ms)
+✔ OAuth 2.1: dynamic registration, consent with password, PKCE token exchange (80.587334ms)
+✔ relay: TLS passthrough by SNI to the node, relay never holds the key (12.464459ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1633.925583

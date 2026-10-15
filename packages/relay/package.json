@@ -1,0 +1,8 @@
+{
+  "name": "@satchel/relay",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": { "satchel-relay": "./src/cli.ts" },
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@satchel/core": "workspace:*", "@supabase/supabase-js": "^2.117.0" }
+}

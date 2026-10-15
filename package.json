@@ -1,0 +1,23 @@
+{
+  "name": "satchel",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test --test-reporter=spec 'packages/*/test/*.test.ts'",
+    "dev:node": "node packages/node/src/cli.ts serve",
+    "dev:relay": "node packages/relay/src/cli.ts",
+    "dev:web": "pnpm --filter @satchel/web dev",
+    "build:web": "pnpm --filter @satchel/web build",
+    "build:desktop": "pnpm --filter @satchel/desktop build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "playwright": "1.64.1",
+    "typescript": "^5.9.0"
+  }
+}

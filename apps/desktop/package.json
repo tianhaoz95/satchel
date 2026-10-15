@@ -1,0 +1,30 @@
+{
+  "name": "@satchel/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Satchel desktop: runs a node, adds OCR and local-model helpers",
+  "main": "out/main.mjs",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "dist": "node build.mjs && electron-builder --publish never"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@satchel/node": "workspace:*",
+    "@satchel/core": "workspace:*",
+    "electron": "^44.7.2",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.28.0"
+  },
+  "build": {
+    "appId": "dev.satchel.desktop",
+    "productName": "Satchel",
+    "files": ["out/**", "assets/**"],
+    "extraResources": [{ "from": "../../packages/node/ui", "to": "ui" }, { "from": "helpers/bin", "to": "helpers", "filter": ["**/*"] }],
+    "mac": { "category": "public.app-category.productivity", "target": ["dmg", "zip"], "hardenedRuntime": true },
+    "win": { "target": ["nsis"] },
+    "linux": { "target": ["AppImage", "deb"], "category": "Office" }
+  }
+}

@@ -1,0 +1,30 @@
+name: Web (Cloudflare Pages)
+on:
+  push:
+    branches: [main]
+    paths: ["apps/web/**", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["apps/web/**"]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, deployments: write, pull-requests: write }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+        env:
+          VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          VITE_RELAY_CONTROL: ${{ vars.RELAY_CONTROL }}
+          VITE_RELAY_DOMAIN: ${{ vars.RELAY_DOMAIN }}
+      - name: Deploy (preview on PRs, production on main)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web
+          command: pages deploy dist --project-name=satchel-web --branch=${{ github.head_ref || github.ref_name }}

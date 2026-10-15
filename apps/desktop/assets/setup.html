@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Set up Satchel</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{--bg:#fafaf9;--surface:#fff;--ink:#1c1917;--muted:#78716c;--line:#e7e5e4;--accent:#1f6f50}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--surface:#1c1b1a;--ink:#f2f1ef;--muted:#a19d98;--line:#2e2c2a;--accent:#4fb487}}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,sans-serif;padding:32px}
+h1{font-size:1.4rem;margin:.2rem 0 .4rem}.muted{color:var(--muted)}
+label{display:block;margin:14px 0;font-weight:500}
+input{display:block;width:100%;box-sizing:border-box;margin-top:4px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit}
+.folder{display:flex;gap:8px;align-items:center;margin-top:4px}.folder code{flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+button{padding:8px 14px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:500;cursor:pointer}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff;width:100%;margin-top:10px;padding:10px}
+.err{color:#b42318}
+</style></head><body>
+<p class="muted" style="text-transform:uppercase;letter-spacing:.08em;font-size:.72rem;margin:0">Welcome</p>
+<h1>Set up Satchel on this computer</h1>
+<p class="muted">Satchel indexes a folder you already have. Files stay where they are; Satchel adds small metadata files next to them and a VAULT.md with instructions for agents.</p>
+<form id="f">
+  <label>Records folder<div class="folder"><code id="folder">Choose a folder…</code><button type="button" id="pick">Choose</button></div></label>
+  <label>Name of this node<input id="name" value="My computer"></label>
+  <label>Owner password<input id="pw" type="password" required minlength="8" placeholder="At least 8 characters"></label>
+  <p class="muted" style="font-size:.85rem">You'll enter this password when you connect an AI agent. It never leaves this computer.</p>
+  <p class="err" id="err"></p>
+  <button class="primary">Start Satchel</button>
+</form>
+<script>
+let folder = null;
+document.getElementById("pick").onclick = async () => { folder = await window.satchel.chooseFolder(); if (folder) document.getElementById("folder").textContent = folder; };
+document.getElementById("f").onsubmit = async (e) => {
+  e.preventDefault();
+  if (!folder) return (document.getElementById("err").textContent = "Choose a folder first.");
+  await window.satchel.setup({ name: document.getElementById("name").value, folder, password: document.getElementById("pw").value });
+};
+</script></body></html>

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Satchel MVP Report</title>
+<link rel="icon" href="logo.svg">
+<link rel="stylesheet" href="report.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap row">
+    <a class="brand" href="#"><svg viewBox="0 0 32 32" width="22" height="22" fill="none"><rect x="3" y="7" width="26" height="20" rx="4" fill="var(--accent)"/><path d="M3 12h26" stroke="var(--bg)" stroke-width="2"/><rect x="11" y="4" width="10" height="6" rx="2" stroke="var(--accent)" stroke-width="2"/><circle cx="16" cy="19" r="3" fill="var(--bg)"/></svg> Satchel · MVP report</a>
+    <nav>
+      <a href="#summary">Summary</a><a href="#architecture">Architecture</a><a href="#flows">Walkthrough</a><a href="#screens">Screens</a><a href="#security">Security</a><a href="#cicd">CI/CD</a><a href="#status">Status</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="summary" class="hero">
+    <p class="eyebrow">Built 2026-10-14 · autonomous session</p>
+    <h1>Satchel: an agent-neutral vault for personal records</h1>
+    <p class="lead">Your records stay in your own folders. Any MCP agent can search them, file new ones and remind you before they expire. A thin relay makes your node reachable without ever reading your traffic, and your phone is the second factor for anything sensitive.</p>
+    <div class="stats">
+      <div><b>5</b><span>components: node, relay, web, desktop, phone</span></div>
+      <div><b>17</b><span>MCP tools</span></div>
+      <div><b>14 / 14</b><span>tests passing (unit + end-to-end)</span></div>
+      <div><b>~6.3k</b><span>lines of source</span></div>
+    </div>
+    <div class="callout">
+      <b>How to read this report.</b> The <a href="#architecture">architecture diagram</a> shows every piece and the trust boundaries. The <a href="#flows">walkthrough</a> animates five real flows step by step; each step matches code that's tested or running in the screenshots. <a href="#status">Status</a> lists what's verified, what isn't, and what's next.
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <p class="muted">Hover a component for details. Dashed outlines are hosted services; the green box is the only place plaintext and keys live.</p>
+    <div class="diagram-card">
+      <svg id="arch" viewBox="0 0 980 470" role="img" aria-label="Satchel architecture">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+        </defs>
+        <g class="zones">
+          <rect x="530" y="20" width="440" height="430" rx="14" class="zone own"/>
+          <text x="548" y="440" class="zone-label">Your hardware</text>
+          <rect x="250" y="20" width="250" height="430" rx="14" class="zone hosted"/>
+          <text x="268" y="440" class="zone-label">Hosted (satchel.dev or self-host)</text>
+          <rect x="10" y="20" width="210" height="430" rx="14" class="zone third"/>
+          <text x="28" y="440" class="zone-label">AI providers</text>
+        </g>
+        <g class="edges">
+          <path id="e-agent-relay" class="edge" d="M200 105 H290"/>
+          <path id="e-relay-node" class="edge tunnel" d="M470 105 H580"/>
+          <path id="e-node-folders" class="edge" d="M800 105 H830"/>
+          <path id="e-local-node" class="edge" d="M200 385 C 300 435, 480 425, 520 330 S 560 245, 580 225"/>
+          <path id="e-portal-supabase" class="edge" d="M380 255 V320"/>
+          <path id="e-relay-supabase" class="edge" d="M470 130 C 500 200, 500 330, 470 350"/>
+          <path id="e-phone-node" class="edge" d="M690 330 V240"/>
+          <path id="e-helpers-node" class="edge" d="M860 300 C 860 260, 830 230, 800 210"/>
+          <path id="e-relay-dns" class="edge" d="M380 80 V60"/>
+        </g>
+        <g class="nodes">
+          <g class="box" id="n-agents" data-info="Claude, ChatGPT, Gemini… Cloud agents run their MCP client on the provider's servers, so they need a public HTTPS URL. They only see what tools return.">
+            <rect x="30" y="70" width="170" height="70" rx="8"/><text x="115" y="100" class="t">Cloud agents</text><text x="115" y="120" class="s">Claude · ChatGPT · Gemini</text></g>
+          <g class="box" id="n-local" data-info="Claude Code, local models, scripts. They connect to 127.0.0.1:7710/mcp directly (or via `satchel stdio`), with no relay involved.">
+            <rect x="30" y="335" width="170" height="70" rx="8"/><text x="115" y="365" class="t">Local agents</text><text x="115" y="385" class="s">Claude Code · local LLM</text></g>
+          <g class="box hosted" id="n-relay" data-info="Multi-tenant TCP relay. Reads only the SNI hostname in the TLS ClientHello, asks that node to open a stream over its outbound tunnel, and splices the bytes. TLS terminates on the node. packages/relay">
+            <rect x="290" y="70" width="180" height="70" rx="8"/><text x="380" y="100" class="t">Relay</text><text x="380" y="120" class="s">SNI routing · TLS passthrough</text></g>
+          <g class="box hosted" id="n-dns" data-info="DNS-01 helper: the relay publishes the _acme-challenge TXT record so the node can get a Let's Encrypt cert. The private key is generated on the node.">
+            <rect x="320" y="26" width="120" height="34" rx="6"/><text x="380" y="48" class="s">Cloudflare DNS</text></g>
+          <g class="box hosted" id="n-portal" data-info="Landing, docs and portal in one Vite/React app on Cloudflare Pages. Users claim a subdomain and get a node token, generated in the browser; only its SHA-256 hash is stored. apps/web">
+            <rect x="290" y="195" width="180" height="60" rx="8"/><text x="380" y="222" class="t">Web app</text><text x="380" y="241" class="s">Cloudflare Pages</text></g>
+          <g class="box hosted" id="n-supabase" data-info="Supabase Auth + a nodes table (subdomain, token hash, online flag) under RLS. Users can only rename or revoke; status columns are writable by the relay's service role only. supabase/migrations">
+            <rect x="290" y="320" width="180" height="60" rx="8"/><text x="380" y="347" class="t">Supabase</text><text x="380" y="366" class="s">accounts · node registry</text></g>
+          <g class="box own" id="n-node" data-info="The node: index (SQLite FTS5), 17 MCP tools, embedded OAuth 2.1 server with consent page, approvals, audit log, admin UI and phone PWA, tunnel client, ACME. Runs in Docker on a NAS or inside the desktop app. packages/node">
+            <rect x="580" y="70" width="220" height="170" rx="10"/><text x="690" y="98" class="t">Satchel node</text>
+            <text x="690" y="124" class="s">MCP · OAuth 2.1 · TLS key</text><text x="690" y="144" class="s">approvals · audit · masking</text><text x="690" y="164" class="s">index (SQLite FTS5)</text><text x="690" y="184" class="s">admin UI · phone PWA</text><text x="690" y="210" class="s mono">NAS (Docker) or desktop</text></g>
+          <g class="box own" id="n-folders" data-info="Your folders, unchanged in place: files + hidden .<name>.satchel.yaml sidecars + VAULT.md + .satchel/journal.jsonl. Local disk, NAS share, or a Drive/Dropbox/OneDrive-synced folder.">
+            <rect x="830" y="70" width="130" height="70" rx="8"/><text x="895" y="100" class="t">Your folders</text><text x="895" y="120" class="s">files + sidecars</text></g>
+          <g class="box own" id="n-phone" data-info="Installable PWA served by the node itself (/app). Approvals, values delivered by agents, upcoming dates, camera capture into the Inbox folder. Web Push carries no data.">
+            <rect x="600" y="330" width="180" height="70" rx="8"/><text x="690" y="360" class="t">Phone companion</text><text x="690" y="380" class="s">approve · inbox · capture</text></g>
+          <g class="box own" id="n-helpers" data-info="Desktop helpers: macOS Vision OCR (Swift binary) and an optional Ollama-compatible local model that suggests doc_type/title/dates. Output is ordinary, journaled node data. apps/desktop">
+            <rect x="800" y="300" width="160" height="70" rx="8"/><text x="880" y="330" class="t">Desktop helpers</text><text x="880" y="350" class="s">OCR · local model</text></g>
+        </g>
+        <circle id="dot" r="6" class="dot" cx="-20" cy="-20"/>
+      </svg>
+      <div id="info" class="info">Hover or tap a component.</div>
+    </div>
+  </section>
+
+  <section id="flows">
+    <h2>Walkthrough</h2>
+    <p class="muted">Pick a flow and press play. Each step lights up the components involved, and a packet travels the path it takes.</p>
+    <div class="flow-tabs" id="flowTabs"></div>
+    <div class="flow-card">
+      <svg id="flowSvg" viewBox="0 0 980 470"></svg>
+      <div class="flow-side">
+        <ol id="steps" class="steps"></ol>
+        <div class="controls">
+          <button id="prev" aria-label="Previous step">←</button>
+          <button id="play" class="primary">Play</button>
+          <button id="next" aria-label="Next step">→</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What's on disk</h2>
+    <div class="two">
+      <div>
+        <p>The vault stays a normal folder a person can browse. Everything Satchel adds is plain text and travels with the files:</p>
+<pre class="tree"><span class="c"># your folder (NAS share, local, or Drive-synced)</span>
+Records/
+├── <b>VAULT.md</b>                  <span class="c">← agent instructions (policy as text)</span>
+├── .satchel/journal.jsonl       <span class="c">← append-only change history (undo)</span>
+├── People/Alex/ID/
+│   ├── 2024-05 Driver License (exp 2032-05).pdf
+│   └── .2024-05 Driver License (exp 2032-05).pdf.satchel.yaml
+├── Vehicles/2019 Honda Civic/Registration/
+│   └── 2026-03 Registration (exp 2027-03).pdf
+└── Inbox/                    <span class="c">← phone captures land here</span>
+
+<span class="c"># node data dir (never inside the vault)</span>
+~/Library/Application Support/Satchel/
+├── config.json               <span class="c">← roots, security policy, relay</span>
+├── satchel.sqlite               <span class="c">← index cache, tokens (hashed), approvals, audit</span>
+├── text/&lt;sha256&gt;.txt         <span class="c">← extracted / OCR text cache</span>
+└── tls/key.pem               <span class="c">← node's TLS key: never leaves</span></pre>
+      </div>
+      <div>
+<pre class="tree"><span class="c"># .2024-05 Driver License (exp 2032-05).pdf.satchel.yaml</span>
+<span class="c"># Satchel metadata. Plain YAML: edit it by hand if you like.</span>
+doc_type: drivers_license
+subject: Alex
+title: California Driver License
+issued_on: 2024-05-14
+expires_on: 2032-05-14
+license_number: D7741025   <span class="c">← masked for agents: D774••••</span>
+sensitive: [license_number]</pre>
+        <p class="muted small">Design rule from our discussion: <b>the node is dumb on purpose.</b> It stores facts, enforces permissions and journals changes. Naming, layout and reminder habits live in <code>VAULT.md</code>, which smarter agents can use more fully. Security policy is the exception: it lives in <code>config.json</code>, out of agents' reach.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens">
+    <h2>Screens</h2>
+    <p class="muted">All captured from the running code (headless Chromium / Electron) against a seeded demo vault. Click to enlarge.</p>
+    <div class="flow-tabs" id="shotTabs"></div>
+    <div class="gallery" id="gallery"></div>
+  </section>
+
+  <section id="tools">
+    <h2>MCP tools</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Tool</th><th>Scope</th><th>What it does</th></tr></thead>
+      <tbody id="toolRows"></tbody>
+    </table></div>
+  </section>
+
+  <section id="security">
+    <h2>Security model</h2>
+    <div class="two">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Party</th><th>Sees</th><th>Never sees</th></tr></thead>
+        <tbody>
+          <tr><td>Your node</td><td>Everything</td><td>–</td></tr>
+          <tr><td>Relay operator</td><td>Subdomain (SNI), timing, byte counts</td><td>Requests, responses, tokens, files</td></tr>
+          <tr><td>Portal / Supabase</td><td>Email, subdomain, token <i>hash</i>, online flag</td><td>Anything in the vault</td></tr>
+          <tr><td>Model provider</td><td>Tool results: masked metadata, redacted text, approved values</td><td>Masked values, delivered values</td></tr>
+          <tr><td>Push service</td><td>That a notification fired</td><td>Content (encrypted, and contains no values)</td></tr>
+        </tbody>
+      </table></div>
+      <ul class="checks">
+        <li><b>TLS passthrough.</b> The node holds the key; the relay splices ciphertext. Verified in the e2e test, which checks that the certificate seen through the relay is the node's.</li>
+        <li><b>OAuth on the node.</b> The consent page, password check and token issuance run locally, so the relay operator can't mint access.</li>
+        <li><b>Masking that only tightens.</b> Agents can add <code>sensitive</code> keys, never remove them. Masked values are kept out of the search index.</li>
+        <li><b>Redaction.</b> Known sensitive values are removed from document text (best effort).</li>
+        <li><b>Deliver, don't reveal.</b> <code>deliver_to_user</code> sends a value to your phone; the model never sees it.</li>
+        <li><b>Approvals show facts first.</b> The agent's reason is labeled "unverified". Revealed values can be picked up once.</li>
+        <li><b>Audit.</b> Per agent, which sensitive values it actually received.</li>
+        <li><b>Path safety.</b> No escaping roots; <code>.satchel/</code> and sidecars are unreachable through tools.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="cicd">
+    <h2>CI/CD (GitHub Actions)</h2>
+    <div class="pipeline" id="pipeline">
+      <div class="stage"><b>ci.yml</b><span>typecheck · 14 tests · web build · desktop bundle (macOS)</span></div>
+      <div class="stage"><b>web.yml</b><span>Vite build → Cloudflare Pages (preview per PR, prod on main)</span></div>
+      <div class="stage"><b>supabase.yml</b><span><code>supabase db push</code> on migration changes</span></div>
+      <div class="stage"><b>images.yml</b><span>satchel-node + satchel-relay, amd64 + arm64 → GHCR on tags</span></div>
+      <div class="stage"><b>relay-deploy.yml</b><span>pull + restart relay on the VPS, health check</span></div>
+      <div class="stage"><b>desktop-release.yml</b><span>dmg / exe / AppImage → GitHub Release on tags</span></div>
+    </div>
+    <p class="muted small">Required secrets and variables: <code>CLOUDFLARE_API_TOKEN</code>, <code>CLOUDFLARE_ACCOUNT_ID</code>, <code>SUPABASE_ACCESS_TOKEN</code>, <code>SUPABASE_DB_PASSWORD</code>, <code>vars.SUPABASE_PROJECT_REF</code>, <code>vars.SUPABASE_URL</code>, <code>vars.SUPABASE_ANON_KEY</code>, <code>vars.RELAY_CONTROL</code>, <code>vars.RELAY_DOMAIN</code>, <code>RELAY_HOST</code>/<code>RELAY_USER</code>/<code>RELAY_SSH_KEY</code>, plus optional Apple signing secrets.</p>
+  </section>
+
+  <section id="status">
+    <h2>Status</h2>
+    <div class="status-grid">
+      <div class="card ok"><h3>Verified working</h3><ul>
+        <li>All 17 MCP tools over Streamable HTTP and stdio</li>
+        <li>OAuth 2.1: discovery, dynamic registration, consent with password, PKCE</li>
+        <li>Masking, text redaction, monotonic <code>sensitive</code>, root/scope enforcement</li>
+        <li>Approvals → pickup-once reveal; deliver_to_user; audit of disclosures</li>
+        <li>Reorganization plan → approve → journaled moves (with sidecars) → undo</li>
+        <li>Relay: tunnel, SNI routing, passthrough to the node's own cert, unknown hosts dropped</li>
+        <li>Admin UI, phone PWA, web app, Electron app (screens above)</li>
+        <li>macOS Vision OCR helper on a rendered test image</li>
+        <li>Supabase migration + RLS rules (run under PGlite with stubbed <code>auth</code>)</li>
+      </ul></div>
+      <div class="card warn"><h3>Built, not verified here</h3><ul>
+        <li>Docker images (Docker daemon unresponsive on this machine)</li>
+        <li>Let's Encrypt DNS-01 issuance (needs a real domain + Cloudflare zone)</li>
+        <li>Real Supabase project / Cloudflare deploy / GitHub Actions runs</li>
+        <li>Web Push delivery to a real phone; electron-builder installers and signing</li>
+        <li>Local-model metadata suggestions (needs Ollama running)</li>
+        <li>Remote connectors in claude.ai / ChatGPT against a public node</li>
+      </ul></div>
+      <div class="card"><h3>Decisions to review</h3><ul>
+        <li>Name <b>Satchel</b>, the GitHub org <code>satchel-dev</code> and the <code>satchel.dev</code> domain are placeholders</li>
+        <li>Phone app is a PWA served by the node rather than a native app: zero app-store friction, but iOS Web Push requires adding it to the Home Screen</li>
+        <li>Relay runs on a VPS, not Cloudflare (Pages/Workers can't do raw TCP passthrough)</li>
+        <li>OAuth consent uses the owner password; phone-approval as a consent option is a natural next step</li>
+        <li>LICENSE is the Apache-2.0 notice; add the full text before publishing</li>
+      </ul></div>
+      <div class="card"><h3>Next</h3><ul>
+        <li>Phone approval as the second factor on the OAuth consent page</li>
+        <li>Certificate Transparency watcher for the node's own hostname</li>
+        <li>Native cloud connectors (app-folder scopes) beyond synced folders</li>
+        <li>Synology SPK / Unraid template packaging</li>
+        <li>Rate limits and quotas on the hosted relay</li>
+      </ul></div>
+    </div>
+    <h3>Test run</h3>
+    <pre class="tree" id="tests">loading…</pre>
+  </section>
+</main>
+
+<footer class="wrap foot muted small">Serve locally with <code>report/mvp/script/serve.sh</code>. Screenshots regenerate with <code>scripts/shoot-*.ts</code>.</footer>
+
+<div class="lightbox" id="lightbox" hidden><img alt=""><p></p></div>
+<script src="report.js"></script>
+</body>
+</html>

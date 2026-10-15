@@ -1,0 +1,7 @@
+**/node_modules
+report
+.git
+.satchel-dev
+supabase
+apps/*/*
+!apps/*/package.json

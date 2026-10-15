@@ -1,0 +1,1 @@
+-- No seed data: accounts are created through Supabase Auth.

@@ -1,0 +1,16 @@
+# Satchel node for a NAS (Synology Container Manager, Unraid, TrueNAS SCALE, QNAP, CasaOS, Umbrel).
+services:
+  satchel:
+    image: ghcr.io/tianhaoz95/satchel-node:latest
+    container_name: satchel
+    restart: unless-stopped
+    environment:
+      SATCHEL_NAME: "Home NAS"
+      SATCHEL_PASSWORD: "change-me"          # remove after the first start if you like
+      # SATCHEL_RELAY: "tunnel.satchel.dev:7443"  # from the portal, to reach cloud agents
+      # SATCHEL_RELAY_TOKEN: "satchel_node_..."
+    volumes:
+      - /volume1/Records:/vault           # your records folder
+      - ./data:/data                      # node state (index, tokens, approvals)
+    ports:
+      - "7710:7710"                       # admin UI + local MCP on your LAN
