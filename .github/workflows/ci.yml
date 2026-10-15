@@ -109,6 +109,49 @@ jobs:
         if: failure()
         run: docker logs node; docker logs relay
 
+  apple:
+    name: iOS + watchOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - name: SatchelKit tests (vectors)
+        working-directory: apps/apple/Packages/SatchelKit
+        run: swift test
+      - name: SatchelKit against a live node
+        run: |
+          node scripts/ci-companion-node.ts 7799 > ci-node.out &
+          for _ in $(seq 1 30); do [ -s ci-node.out ] && break; sleep 1; done
+          cd apps/apple/Packages/SatchelKit
+          SATCHEL_TEST_PAIR_LINK="$(head -1 ../../../../ci-node.out)" swift test --filter IntegrationTests
+      - name: Build apps for the simulators
+        working-directory: apps/apple
+        run: |
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen generate
+          xcodebuild -project Satchel.xcodeproj -scheme Satchel -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build | tail -3
+          xcodebuild -project Satchel.xcodeproj -scheme SatchelWatch -destination 'generic/platform=watchOS Simulator' -derivedDataPath build/dd build | tail -3
+
+  android:
+    name: Android + Wear OS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests (vectors) and live-node integration
+        run: |
+          node scripts/ci-companion-node.ts 7799 > ci-node.out &
+          for _ in $(seq 1 30); do [ -s ci-node.out ] && break; sleep 1; done
+          cd apps/android
+          SATCHEL_TEST_PAIR_LINK="$(head -1 ../../ci-node.out)" ./gradlew :core:testDebugUnitTest --console=plain
+      - name: Build phone and watch apps
+        working-directory: apps/android
+        run: ./gradlew :app:assembleDebug :wear:assembleDebug --console=plain
+
   workflows:
     name: Workflow lint
     runs-on: ubuntu-latest
@@ -122,7 +165,7 @@ jobs:
   ci-ok:
     name: CI passed
     if: always()
-    needs: [lint, typecheck, test, db, ui, desktop, docker, workflows]
+    needs: [lint, typecheck, test, db, ui, desktop, docker, apple, android, workflows]
     runs-on: ubuntu-latest
     steps:
       - name: All required jobs succeeded
