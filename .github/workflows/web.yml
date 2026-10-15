@@ -9,6 +9,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions: { contents: read, deployments: write, pull-requests: write }
+    env:
+      HAS_CLOUDFLARE: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -22,8 +24,10 @@ jobs:
           VITE_RELAY_CONTROL: ${{ vars.RELAY_CONTROL }}
           VITE_RELAY_DOMAIN: ${{ vars.RELAY_DOMAIN }}
       - name: Deploy (preview on PRs, production on main)
+        if: env.HAS_CLOUDFLARE == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
+          wranglerVersion: "4"
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: apps/web
