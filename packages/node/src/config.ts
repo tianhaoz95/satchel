@@ -5,7 +5,7 @@ import path from "node:path";
 import { DEFAULT_POLICY, type RootConfig, type SecurityPolicy } from "@satchel/core";
 
 export type RelayConfig = {
-  /** Control endpoint of the relay, e.g. "tunnel.satchel.dev:7443". */
+  /** Control endpoint of the relay, e.g. "relay.satchel.dev:7443". */
   control: string;
   /** Node token issued by the relay operator (hosted portal or self-hosted relay). */
   token: string;

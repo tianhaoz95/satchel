@@ -16,6 +16,7 @@ Open-source, agent-neutral vault for personal records (IDs, vehicle papers, insu
 | `deploy/` | Dockerfiles + compose for NAS node and relay |
 | `scripts/` | `demo-seed.ts` and `shoot-*.ts` (Playwright screenshots for the report) |
 | `report/mvp` | MVP walkthrough site; `report/mvp/script/serve.sh` |
+| `report/init-setup` | Interactive guide to Cloudflare / Supabase / OAuth / relay setup; `report/init-setup/script/serve.sh` |
 
 ## Commands
 
@@ -62,4 +63,5 @@ The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, O
 - React: effect callbacks must not return values. In current Chromium, `window.scrollTo` returns a Promise and crashed the app, so wrap effect bodies in braces. Avoid react-router's `<Navigate>`; use `useNavigate` inside an effect.
 - MCP SDK auth routers are created per origin (localhost vs public host), so their built-in rate limiters are disabled and a shared limiter is used instead.
 - Let's Encrypt DNS-01, real Supabase/Cloudflare deploys and Web Push were never verified end to end. Treat them as untested.
+- The relay serves its control port (7443) and HTTPS API on the same hostname, `relay.<domain>`; nodes derive the API URL from the control host.
 - The `satchel.dev` domain is a placeholder. Deploy workflows skip until the Cloudflare/Supabase secrets and variables exist (see `report/mvp/site/index.html#cicd`).

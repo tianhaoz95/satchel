@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Satchel Setup Guide</title>
+<link rel="icon" href="logo.svg">
+<link rel="stylesheet" href="setup.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap bar">
+    <span class="brand"><img src="logo.svg" width="22" height="22" alt=""> Satchel · first-time setup</span>
+    <span class="progress"><span id="progressText">0 / 0</span><span class="meter"><span id="progressBar"></span></span></span>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <nav class="side" id="toc" aria-label="Steps"></nav>
+
+  <main>
+    <section id="intro">
+      <p class="eyebrow">Init setup</p>
+      <h1>What you need to provide to bring Satchel online</h1>
+      <p class="lead">The code is done. Before the hosted parts can run, you need a domain on <b>Cloudflare</b>, a <b>Supabase</b> project, a <b>GitHub OAuth app</b> for sign-in, and a small <b>server</b> for the relay. This page walks through each one in order. Commands and URLs fill in from the values you enter below.</p>
+      <div class="note">
+        <b>Nothing here is required to use Satchel locally.</b> The node, desktop app and local agents work without any of this. These steps are only for the hosted relay address (<code>you.<span data-v="domain"></span></code>) and the portal at <code><span data-v="domain"></span></code>.
+      </div>
+    </section>
+
+    <section id="values">
+      <h2>Your values</h2>
+      <p class="muted">Only non-secret identifiers go here. They stay in this browser (localStorage) and are used to fill in the commands on this page.</p>
+      <form class="grid-form" id="valuesForm" autocomplete="off">
+        <label>Domain<input name="domain" placeholder="satchel.dev" spellcheck="false"><small>Apex domain you'll put on Cloudflare</small></label>
+        <label>GitHub repo<input name="repo" placeholder="tianhaoz95/satchel" spellcheck="false"><small>owner/name</small></label>
+        <label>Supabase project ref<input name="ref" placeholder="abcdefghijklmnopqrst" spellcheck="false"><small>From the project URL, after you create it (step 2)</small></label>
+        <label>Cloudflare Pages project<input name="pages" placeholder="satchel-web" spellcheck="false"><small>Must match <code>wrangler.toml</code> and <code>web.yml</code></small></label>
+        <label>Relay server IPv4<input name="ip" placeholder="203.0.113.10" spellcheck="false"><small>Public IP of the VPS (step 6)</small></label>
+        <label>Relay SSH user<input name="sshUser" placeholder="deploy" spellcheck="false"><small>The user the deploy workflow logs in as</small></label>
+      </form>
+    </section>
+
+    <section id="map">
+      <h2>Where every value goes</h2>
+      <p class="muted">Hover a source to trace it. <span class="key secret">secret</span> values must only ever go to the places shown; never into the web build, a GitHub <i>variable</i>, or a commit.</p>
+      <div class="diagram-card">
+        <svg id="flow" viewBox="0 0 960 430" role="img" aria-label="Value flow between providers">
+          <g class="cols">
+            <text x="110" y="24" class="col">Sources</text>
+            <text x="480" y="24" class="col">Destinations</text>
+          </g>
+          <g id="links"></g>
+          <g id="sources"></g>
+          <g id="dests"></g>
+        </svg>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Value</th><th>Kind</th><th>Where you get it</th><th>Where it goes</th></tr></thead>
+          <tbody id="valueTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="s1" class="step" data-title="Domain on Cloudflare">
+      <h2><span class="num">1</span>Put the domain on Cloudflare</h2>
+      <ol class="checks">
+        <li data-id="1a">Buy <code><span data-v="domain"></span></code> (or use one you own). <span class="muted"><code>satchel.dev</code> is only a placeholder in the code.</span></li>
+        <li data-id="1b">In Cloudflare: <b>Add a domain</b>, choose the Free plan, and switch the nameservers at your registrar to the two Cloudflare shows you. Wait until the zone is <b>Active</b>.</li>
+        <li data-id="1c">From the zone's <b>Overview</b> page, note the <b>Zone ID</b> and <b>Account ID</b> (right column). Neither is a secret.</li>
+      </ol>
+    </section>
+
+    <section id="s2" class="step" data-title="Supabase project">
+      <h2><span class="num">2</span>Create the Supabase project</h2>
+      <ol class="checks">
+        <li data-id="2a"><b>New project</b> at supabase.com. Pick a region near your relay server. Generate a strong <b>database password</b> and store it in your password manager: it becomes the <code>SUPABASE_DB_PASSWORD</code> secret.</li>
+        <li data-id="2b">Copy the <b>project ref</b> (the part before <code>.supabase.co</code> in the project URL) into <a href="#values">Your values</a>.</li>
+        <li data-id="2c"><b>Project Settings → API keys</b>: note the <b>publishable</b> key (older projects call it <code>anon</code>; it's public by design and protected by RLS) and the <b>secret</b> key (older: <code>service_role</code>). The secret key bypasses RLS: it goes <b>only</b> to the relay server.</li>
+        <li data-id="2d"><b>Account → Access Tokens</b>: create a token named <code>github-actions</code>. It becomes the <code>SUPABASE_ACCESS_TOKEN</code> secret, so CI can run <code>supabase db push</code>.</li>
+      </ol>
+      <p class="muted small">Project URL: <code>https://<span data-v="ref"></span>.supabase.co</code></p>
+    </section>
+
+    <section id="s3" class="step" data-title="OAuth sign-in provider">
+      <h2><span class="num">3</span>Create the GitHub OAuth app (portal sign-in)</h2>
+      <p>The portal offers <b>email magic link</b> and <b>Continue with GitHub</b>. GitHub sign-in needs an OAuth app that sends users back to Supabase, not to your site.</p>
+      <ol class="checks">
+        <li data-id="3a">GitHub → <b>Settings → Developer settings → OAuth Apps → New OAuth App</b>. Use an organization if you have one, so the app isn't tied to a personal account.</li>
+        <li data-id="3b">Fill in:
+          <table class="mini">
+            <tr><td>Application name</td><td><code>Satchel</code></td></tr>
+            <tr><td>Homepage URL</td><td><code class="copy">https://<span data-v="domain"></span></code></td></tr>
+            <tr><td>Authorization callback URL</td><td><code class="copy">https://<span data-v="ref"></span>.supabase.co/auth/v1/callback</code></td></tr>
+          </table>
+        </li>
+        <li data-id="3c"><b>Generate a new client secret.</b> Copy the <b>Client ID</b> and <b>Client secret</b>. You'll paste them into Supabase in the next step and nowhere else.</li>
+      </ol>
+      <details>
+        <summary>Optional: Google sign-in as well</summary>
+        <p>Google Cloud Console → <b>APIs &amp; Services → Credentials → Create OAuth client ID</b> (type <i>Web application</i>). Authorized redirect URI: <code>https://<span data-v="ref"></span>.supabase.co/auth/v1/callback</code>. Configure the consent screen with your domain. Then enable <b>Google</b> under Supabase Auth providers with that client ID and secret. The portal currently shows only a GitHub button; adding Google is a one-line change in <code>apps/web/src/data.ts</code> (<code>provider: "google"</code>) plus a button in <code>Login.tsx</code>.</p>
+      </details>
+    </section>
+
+    <section id="s4" class="step" data-title="Supabase Auth settings">
+      <h2><span class="num">4</span>Configure Supabase Auth</h2>
+      <ol class="checks">
+        <li data-id="4a"><b>Authentication → Sign In / Providers → GitHub</b>: enable it and paste the Client ID and Client secret from step 3.</li>
+        <li data-id="4b"><b>Authentication → URL Configuration</b>:
+          <table class="mini">
+            <tr><td>Site URL</td><td><code class="copy">https://<span data-v="domain"></span></code></td></tr>
+            <tr><td>Redirect URLs</td><td><code class="copy">https://<span data-v="domain"></span>/portal</code><br><code class="copy">https://*.<span data-v="pages"></span>.pages.dev/**</code> <span class="muted">(PR previews)</span><br><code class="copy">http://localhost:5180/portal</code> <span class="muted">(local dev)</span></td></tr>
+          </table>
+        </li>
+        <li data-id="4c"><b>Authentication → Emails → SMTP</b>: set up a custom SMTP sender (Resend, Postmark, SES…) on <code>auth@<span data-v="domain"></span></code>. Supabase's built-in mailer is heavily rate-limited and meant only for testing, so magic links will stall without this.</li>
+        <li data-id="4d">Optional: customize the <b>Magic Link</b> email template so it says Satchel.</li>
+      </ol>
+    </section>
+
+    <section id="s5" class="step" data-title="Cloudflare Pages">
+      <h2><span class="num">5</span>Cloudflare Pages for the web app</h2>
+      <ol class="checks">
+        <li data-id="5a"><b>My Profile → API Tokens → Create Token → Custom token</b> named <code>satchel-pages-deploy</code>. Permission: <b>Account · Cloudflare Pages · Edit</b>, limited to your account. This becomes <code>CLOUDFLARE_API_TOKEN</code> in GitHub.</li>
+        <li data-id="5b">Create the Pages project once (CI deploys into it but doesn't create it):
+          <pre class="cmd">npx wrangler login
+npx wrangler pages project create <span data-v="pages"></span> --production-branch main</pre></li>
+        <li data-id="5c">After the first deploy (step 8): Pages project → <b>Custom domains → Set up a domain</b> → <code><span data-v="domain"></span></code>. Cloudflare adds the DNS record itself (proxied, orange cloud, which is right for the website).</li>
+      </ol>
+      <p class="muted small">The VITE_* values are baked in at build time by GitHub Actions, so you don't need to set any environment variables on the Pages project.</p>
+    </section>
+
+    <section id="s6" class="step" data-title="Relay server">
+      <h2><span class="num">6</span>Relay server</h2>
+      <p>The relay must accept raw TLS on port 443 and pass it through untouched, which Cloudflare Pages and Workers can't do, so it runs on a small VPS (1 vCPU / 1 GB is plenty to start). Any provider with a public IPv4 works: Hetzner, DigitalOcean, Fly.io machines, Lightsail…</p>
+      <ol class="checks">
+        <li data-id="6a">Create a VPS (Ubuntu 24.04), install Docker, and put its IP in <a href="#values">Your values</a>. Open inbound <b>443</b> and <b>7443</b> (plus 22 for SSH).</li>
+        <li data-id="6b">Cloudflare DNS for <code><span data-v="domain"></span></code>: add these records as <b>DNS only (grey cloud)</b>. If they're proxied, Cloudflare terminates TLS and breaks the end-to-end guarantee.
+          <table class="mini">
+            <tr><th>Type</th><th>Name</th><th>Content</th><th>Proxy</th></tr>
+            <tr><td>A</td><td><code>relay</code></td><td><code><span data-v="ip"></span></code></td><td>DNS only</td></tr>
+            <tr><td>A</td><td><code>*</code></td><td><code><span data-v="ip"></span></code></td><td>DNS only</td></tr>
+          </table>
+          <span class="muted small">The wildcard gives every node <code>name.<span data-v="domain"></span></code>. Explicit records (the apex for Pages, <code>relay</code>) take precedence over it.</span></li>
+        <li data-id="6c">A second Cloudflare token, <code>satchel-relay-dns</code>: <b>Zone · DNS · Edit</b>, limited to <b>this zone only</b>. The relay uses it to publish ACME TXT records so nodes can get real certificates for their own keys. It's also used once by certbot below.</li>
+        <li data-id="6d">Get the relay's own certificate (for <code>relay.<span data-v="domain"></span></code> only; node certificates stay on the nodes):
+          <pre class="cmd">sudo apt install -y certbot python3-certbot-dns-cloudflare
+sudo install -d -m 700 /root/.secrets
+echo "dns_cloudflare_api_token = PASTE_DNS_TOKEN" | sudo tee /root/.secrets/cloudflare.ini >/dev/null
+sudo chmod 600 /root/.secrets/cloudflare.ini
+sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /root/.secrets/cloudflare.ini \
+  -d relay.<span data-v="domain"></span> --deploy-hook "docker restart satchel-relay-relay-1 || true"</pre></li>
+        <li data-id="6e">Create <code>/opt/satchel-relay/compose.yml</code> and <code>/opt/satchel-relay/.env</code>:
+          <pre class="cmd" id="composeFile"></pre>
+          <pre class="cmd">sudo install -d -o <span data-v="sshUser"></span> /opt/satchel-relay
+cd /opt/satchel-relay
+cat &gt; .env &lt;&lt;'ENV'
+SUPABASE_SERVICE_ROLE_KEY=PASTE_SUPABASE_SECRET_KEY
+CLOUDFLARE_ZONE_ID=PASTE_ZONE_ID
+CLOUDFLARE_API_TOKEN=PASTE_DNS_TOKEN
+ENV
+chmod 600 .env</pre></li>
+        <li data-id="6f">A deploy key for GitHub Actions: on your machine run <code>ssh-keygen -t ed25519 -f satchel-relay-deploy -N ""</code>, append <code>satchel-relay-deploy.pub</code> to <code>~<span data-v="sshUser"></span>/.ssh/authorized_keys</code> on the VPS, and keep the private key for step 7. Add the user to the <code>docker</code> group.</li>
+      </ol>
+    </section>
+
+    <section id="s7" class="step" data-title="GitHub secrets & variables">
+      <h2><span class="num">7</span>GitHub secrets and variables</h2>
+      <p>Run these from the repo checkout. Variables hold public identifiers. <code>gh secret set</code> <b>prompts</b> for each secret value, so secrets never pass through this page or your shell history.</p>
+      <pre class="cmd" id="ghCommands"></pre>
+      <ol class="checks">
+        <li data-id="7a">Variables set (domain, relay endpoint, Supabase URL, publishable key, project ref).</li>
+        <li data-id="7b">Secrets set (Cloudflare ×2, Supabase ×2, relay SSH ×3).</li>
+        <li data-id="7c">Repo <b>Settings → Environments → New environment</b> <code>production</code> (the relay deploy job uses it). Optionally require yourself as a reviewer.</li>
+      </ol>
+    </section>
+
+    <section id="s8" class="step" data-title="Deploy & verify">
+      <h2><span class="num">8</span>Deploy and verify</h2>
+      <ol class="checks">
+        <li data-id="8a">Apply the database schema: <code>gh workflow run supabase.yml</code>, then check that the <b>nodes</b> table exists in the Supabase table editor.</li>
+        <li data-id="8b">Deploy the site: <code>gh workflow run web.yml</code> (or push to <code>main</code>). Then attach the custom domain (step 5c) and open <code>https://<span data-v="domain"></span></code>.</li>
+        <li data-id="8c">Publish the images: <code>git tag v0.1.0 &amp;&amp; git push --tags</code>. When <b>Container images</b> finishes, make the two packages <b>public</b> (GitHub → your profile → Packages → <code>satchel-node</code> / <code>satchel-relay</code> → Package settings → Change visibility) so the VPS and NAS users can pull them without logging in.</li>
+        <li data-id="8d"><b>Deploy hosted relay</b> runs after the images; or start it by hand on the VPS: <code>cd /opt/satchel-relay &amp;&amp; docker compose up -d</code>. Check: <code>curl https://relay.<span data-v="domain"></span>/healthz</code> → <code>{"ok":true}</code>.</li>
+        <li data-id="8e">End to end: sign in on the portal with GitHub and with an email link, create a node, then on your machine:
+          <pre class="cmd">node packages/node/src/cli.ts connect --relay relay.<span data-v="domain"></span>:7443 --token satchel_node_…
+node packages/node/src/cli.ts serve</pre>
+          The portal should show the node <b>online</b>, and <code>https://NAME.<span data-v="domain"></span>/mcp</code> should answer 401 with OAuth metadata.</li>
+        <li data-id="8f">Connect a real cloud agent: add <code>https://NAME.<span data-v="domain"></span>/mcp</code> as a custom connector in Claude, complete the consent page, and ask "what's expiring?".</li>
+      </ol>
+    </section>
+
+    <section id="done">
+      <h2>Good to know</h2>
+      <ul>
+        <li><b>Rotating secrets:</b> rerun the matching <code>gh secret set</code>; for relay values, edit <code>/opt/satchel-relay/.env</code> and run <code>docker compose up -d</code>.</li>
+        <li><b>Previews:</b> each PR gets a Pages preview at <code>*.<span data-v="pages"></span>.pages.dev</code>; the wildcard redirect URL from step 4 lets sign-in work there.</li>
+        <li><b>Costs at small scale:</b> Cloudflare Free, Supabase Free (pauses after a week of inactivity; upgrade to Pro for production), one small VPS, and the domain.</li>
+        <li><b>Self-hosters</b> need none of this: they run their own relay with a <code>nodes.json</code> file (see <code>/docs/self-hosting</code>).</li>
+      </ul>
+    </section>
+  </main>
+</div>
+<script src="setup.js"></script>
+</body>
+</html>

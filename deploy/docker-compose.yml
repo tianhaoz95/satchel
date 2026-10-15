@@ -7,7 +7,7 @@ services:
     environment:
       SATCHEL_NAME: "Home NAS"
       SATCHEL_PASSWORD: "change-me"          # remove after the first start if you like
-      # SATCHEL_RELAY: "tunnel.satchel.dev:7443"  # from the portal, to reach cloud agents
+      # SATCHEL_RELAY: "relay.satchel.dev:7443"  # from the portal, to reach cloud agents
       # SATCHEL_RELAY_TOKEN: "satchel_node_..."
     volumes:
       - /volume1/Records:/vault           # your records folder

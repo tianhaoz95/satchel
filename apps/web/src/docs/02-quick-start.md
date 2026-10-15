@@ -43,7 +43,7 @@ For clients that launch a command (stdio):
 Cloud agents such as claude.ai or ChatGPT need a public HTTPS URL. [Create a node](/portal) in the portal to get a subdomain and a node token, then:
 
 ```bash
-satchel connect --relay tunnel.satchel.dev:7443 --token satchel_node_…
+satchel connect --relay relay.satchel.dev:7443 --token satchel_node_…
 satchel serve
 ```
 

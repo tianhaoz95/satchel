@@ -58,6 +58,7 @@ export async function ensureCertificate(node: SatchelNode, opts: { force?: boole
   return pair;
 }
 
+/** By convention the relay serves its control port and its HTTPS API on the same hostname (relay.<domain>). */
 function relayApiBase(control: string, explicit?: string): string | null {
   if (explicit) return explicit.replace(/\/$/, "");
   if (process.env.SATCHEL_RELAY_API) return process.env.SATCHEL_RELAY_API.replace(/\/$/, "");

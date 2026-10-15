@@ -12,7 +12,7 @@ export type NodeRow = {
 };
 export type User = { id: string; email: string };
 
-export const RELAY_CONTROL = import.meta.env.VITE_RELAY_CONTROL || "tunnel.satchel.dev:7443";
+export const RELAY_CONTROL = import.meta.env.VITE_RELAY_CONTROL || "relay.satchel.dev:7443";
 export const RELAY_DOMAIN = import.meta.env.VITE_RELAY_DOMAIN || "satchel.dev";
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
