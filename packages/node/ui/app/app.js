@@ -111,7 +111,13 @@ async function approvals() {
         : ""
     }
     ${a.reason ? `<div class="reason"><span class="eyebrow">Agent's stated reason (unverified)</span><br>${esc(a.reason)}</div>` : ""}
-    ${a.status === "pending" ? `<div class="row" style="display:grid;grid-template-columns:1fr 1fr"><button class="primary" data-ok="${a.id}">Approve</button><button data-no="${a.id}">Deny</button></div>` : ""}</div>`;
+    ${
+      a.status !== "pending"
+        ? ""
+        : a.requires_signature
+          ? `<p class="muted" style="font-size:.88rem">High-risk: approve it in the Satchel app on your phone or watch, where the decision is signed after Face ID or a fingerprint.</p><div class="row"><button data-no="${a.id}">Deny</button></div>`
+          : `<div class="row" style="display:grid;grid-template-columns:1fr 1fr"><button class="primary" data-ok="${a.id}">Approve</button><button data-no="${a.id}">Deny</button></div>`
+    }</div>`;
   frame(
     "approvals",
     `<h1>Approvals</h1>${pending.length ? pending.map(card).join("") : '<div class="empty">Nothing needs you right now.</div>'}
@@ -121,7 +127,11 @@ async function approvals() {
   for (const b of root.querySelectorAll("[data-ok],[data-no]"))
     b.onclick = async () => {
       b.disabled = true;
-      await api(`/approvals/${b.dataset.ok ?? b.dataset.no}`, { method: "POST", json: { decision: b.dataset.ok ? "approved" : "denied" } });
+      try {
+        await api(`/approvals/${b.dataset.ok ?? b.dataset.no}`, { method: "POST", json: { decision: b.dataset.ok ? "approved" : "denied" } });
+      } catch (err) {
+        alert(err.message);
+      }
       approvals();
     };
   wirePush();

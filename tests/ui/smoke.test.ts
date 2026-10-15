@@ -15,6 +15,7 @@ const webDist = path.join(root, "apps", "web", "dist");
 let browser: Browser;
 let running: RunningNode;
 let nodeUrl: string;
+let nodeUrlLocalhost: string;
 let webServer: http.Server;
 let webUrl: string;
 let deviceToken: string;
@@ -26,6 +27,7 @@ before(async () => {
   deviceToken = seed.device_token;
   running = await startNode(seed.data, { log: () => {} });
   nodeUrl = `http://127.0.0.1:${(running.servers.http.address() as any).port}`;
+  nodeUrlLocalhost = nodeUrl.replace("127.0.0.1", "localhost");
 
   assert.ok(existsSync(path.join(webDist, "index.html")), "build the web app first: pnpm build:web");
   webServer = http.createServer((req, res) => {
@@ -103,5 +105,29 @@ test("web app: landing, docs, sign in and create a node (demo mode)", async () =
   await page.click("form button[type=submit]");
   await page.waitForSelector(".setup code");
   assert.match((await page.textContent(".setup code")) ?? "", /^satchel_node_/);
+  assert.deepEqual(errors, []);
+});
+
+test("node admin UI: add a passkey, sign out, sign back in with it", async () => {
+  // WebAuthn relying parties must be hostnames, so this test uses localhost instead of 127.0.0.1.
+  const nodeUrl = nodeUrlLocalhost;
+  const { page, errors } = await guardedPage();
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true },
+  });
+  await page.goto(`${nodeUrl}/admin/`);
+  await page.fill("input[name=password]", "demo");
+  await page.click("button.primary");
+  await page.waitForSelector(".shell");
+  await page.goto(`${nodeUrl}/admin/#security`);
+  await page.fill("#pkname", "CI authenticator");
+  await page.click("#addpk");
+  await page.waitForSelector("text=CI authenticator");
+  await page.click("#logout");
+  await page.waitForSelector("#passkey");
+  await page.click("#passkey");
+  await page.waitForSelector(".shell");
   assert.deepEqual(errors, []);
 });

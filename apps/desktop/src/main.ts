@@ -28,7 +28,8 @@ ICON.setTemplateImage(true);
 function localUrl() {
   const addr = running?.servers.http.address();
   const port = typeof addr === "object" && addr ? addr.port : 7710;
-  return `http://127.0.0.1:${port}`;
+  // "localhost" rather than 127.0.0.1: passkeys (WebAuthn) need a hostname.
+  return `http://localhost:${port}`;
 }
 
 async function openAdmin(hash = "overview") {

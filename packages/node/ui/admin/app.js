@@ -41,19 +41,91 @@ const dayPill = (date) => {
   const cls = d < 0 ? "bad" : d <= 60 ? "warn" : "ok";
   return `<span class="pill ${cls} days">${d < 0 ? `${-d} d overdue` : d === 0 ? "today" : `${d} d`}</span>`;
 };
+const PLATFORMS = { ios: "iPhone", android: "Android", watchos: "Apple Watch", wearos: "Wear OS" };
 const ACTIONS = { reveal_field: "See a sensitive value", apply_plan: "Reorganize files", update_conventions: "Change VAULT.md", set_metadata: "Edit metadata" };
 const LOGO = `<svg viewBox="0 0 32 32" fill="none"><rect x="3" y="7" width="26" height="20" rx="4" fill="var(--accent)"/><path d="M3 12h26" stroke="var(--surface)" stroke-width="2"/><rect x="11" y="4" width="10" height="6" rx="2" stroke="var(--accent)" stroke-width="2"/><circle cx="16" cy="19" r="3" fill="var(--surface)"/></svg>`;
 
 // ------------------------------------------------------------------ login
 
-function renderLogin(error = "") {
+// ------------------------------------------------------------------ passkeys (WebAuthn, no build step)
+
+/** WebAuthn needs a hostname as relying party: IP addresses (127.0.0.1, LAN IPs) can't hold passkeys. */
+const passkeyCapable = () => !!window.PublicKeyCredential && window.isSecureContext && !/^[\d.]+$|^\[/.test(location.hostname);
+
+const b64u = {
+  toBuf: (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0)).buffer,
+  fromBuf: (b) =>
+    btoa(String.fromCharCode(...new Uint8Array(b)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, ""),
+};
+
+async function passkeyCreate(o) {
+  const cred = await navigator.credentials.create({
+    publicKey: {
+      ...o,
+      challenge: b64u.toBuf(o.challenge),
+      user: { ...o.user, id: b64u.toBuf(o.user.id) },
+      excludeCredentials: (o.excludeCredentials ?? []).map((c) => ({ ...c, id: b64u.toBuf(c.id) })),
+    },
+  });
+  return {
+    id: cred.id,
+    rawId: b64u.fromBuf(cred.rawId),
+    type: cred.type,
+    authenticatorAttachment: cred.authenticatorAttachment,
+    clientExtensionResults: cred.getClientExtensionResults(),
+    response: {
+      clientDataJSON: b64u.fromBuf(cred.response.clientDataJSON),
+      attestationObject: b64u.fromBuf(cred.response.attestationObject),
+      transports: cred.response.getTransports?.() ?? [],
+    },
+  };
+}
+
+async function passkeyGet(o) {
+  const cred = await navigator.credentials.get({
+    publicKey: { ...o, challenge: b64u.toBuf(o.challenge), allowCredentials: (o.allowCredentials ?? []).map((c) => ({ ...c, id: b64u.toBuf(c.id) })) },
+  });
+  return {
+    id: cred.id,
+    rawId: b64u.fromBuf(cred.rawId),
+    type: cred.type,
+    authenticatorAttachment: cred.authenticatorAttachment,
+    clientExtensionResults: cred.getClientExtensionResults(),
+    response: {
+      clientDataJSON: b64u.fromBuf(cred.response.clientDataJSON),
+      authenticatorData: b64u.fromBuf(cred.response.authenticatorData),
+      signature: b64u.fromBuf(cred.response.signature),
+      userHandle: cred.response.userHandle ? b64u.fromBuf(cred.response.userHandle) : undefined,
+    },
+  };
+}
+
+async function renderLogin(error = "") {
+  const s = await fetch("/admin/api/session", { credentials: "same-origin" })
+    .then((r) => r.json())
+    .catch(() => ({}));
+  const canPasskey = s.passkeys && passkeyCapable();
   root.innerHTML = `<main class="wrap"><form class="card narrow" id="login">
     <div class="brand" style="padding:0 0 12px">${LOGO} Satchel</div>
     <h1>Sign in to your node</h1>
-    <p class="muted">Use the owner password you set with <code>satchel init</code>.</p>
+    <p class="muted">${canPasskey ? "Use your passkey, or the owner password you set with <code>satchel init</code>." : "Use the owner password you set with <code>satchel init</code>."}</p>
     ${error ? `<p class="error">${esc(error)}</p>` : ""}
-    <label>Owner password<input type="password" name="password" autofocus required></label>
-    <div class="row"><button class="primary">Sign in</button></div></form></main>`;
+    ${canPasskey ? `<button type="button" class="primary" id="passkey" style="width:100%;justify-content:center">Sign in with a passkey</button><p class="muted" style="text-align:center;margin:14px 0 0">or</p>` : ""}
+    <label>Owner password<input type="password" name="password" ${canPasskey ? "" : "autofocus"} required></label>
+    <div class="row"><button class="${canPasskey ? "" : "primary"}">Sign in</button></div></form></main>`;
+  if (canPasskey)
+    $("#passkey").onclick = async () => {
+      try {
+        const { id, options } = await api("/login/passkey/options", { method: "POST", body: {} });
+        await api("/login/passkey/verify", { method: "POST", body: { id, response: await passkeyGet(options) } });
+        start();
+      } catch (err) {
+        renderLogin(err.name === "NotAllowedError" ? "Passkey sign-in was cancelled." : err.message);
+      }
+    };
   $("#login").onsubmit = async (e) => {
     e.preventDefault();
     try {
@@ -240,7 +312,13 @@ async function approvals() {
     ${a.detail.fields ? `<pre class="snippet">${esc(JSON.stringify(a.detail.fields, null, 2))}</pre>` : ""}
     ${a.reason ? `<div class="reason"><span class="eyebrow">Agent's stated reason (unverified)</span><br>${esc(a.reason)}</div>` : ""}
     ${a.result?.error ? `<p class="error">${esc(a.result.error)}</p>` : ""}
-    ${a.status === "pending" ? `<div class="row"><button class="primary" data-ok="${a.id}">Approve</button><button data-no="${a.id}">Deny</button></div>` : ""}</div>`;
+    ${
+      a.status !== "pending"
+        ? `${a.decided_by ? `<p class="muted" style="margin:6px 0 0;font-size:.88rem">Decided by ${esc(a.decided_by)}${a.decision_signature ? " · hardware-signed" : ""}</p>` : ""}`
+        : a.requires_signature
+          ? `<div class="row"><span class="pill ok">Approve on your phone</span><span class="muted" style="font-size:.88rem">High-risk: needs a decision signed by a paired device.</span><button data-no="${a.id}">Deny</button></div>`
+          : `<div class="row"><button class="primary" data-ok="${a.id}">Approve</button><button data-no="${a.id}">Deny</button></div>`
+    }</div>`;
   shell(
     "approvals",
     "Approvals",
@@ -252,8 +330,12 @@ async function approvals() {
   for (const b of root.querySelectorAll("[data-ok],[data-no]"))
     b.onclick = async () => {
       const approve = !!b.dataset.ok;
-      await api(`/approvals/${b.dataset.ok ?? b.dataset.no}`, { method: "POST", body: { decision: approve ? "approved" : "denied" } });
-      toast(approve ? "Approved" : "Denied");
+      try {
+        await api(`/approvals/${b.dataset.ok ?? b.dataset.no}`, { method: "POST", body: { decision: approve ? "approved" : "denied" } });
+        toast(approve ? "Approved" : "Denied");
+      } catch (err) {
+        toast(err.message);
+      }
       route();
     };
 }
@@ -385,6 +467,8 @@ async function conventions(ov) {
 
 async function security() {
   const { policy, defaults } = await api("/policy");
+  const passkeys = await api("/passkeys");
+  const devSig = policy.approvals.deviceSignature ?? "when_paired";
   const sel = (k) =>
     `<select name="${k}" style="width:auto;margin:0"><option value="always" ${policy.approvals[k] === "always" ? "selected" : ""}>Ask me</option><option value="never" ${policy.approvals[k] === "never" ? "selected" : ""}>Allow</option></select>`;
   shell(
@@ -396,15 +480,26 @@ async function security() {
       <div><span>Reveal a sensitive value</span>${sel("reveal")}</div>
       <div><span>Move or rename files</span>${sel("organize")}</div>
       <div><span>Change VAULT.md</span>${sel("conventions")}</div>
-      <div><span>Edit metadata</span>${sel("metadata")}</div></div></div>
+      <div><span>Edit metadata</span>${sel("metadata")}</div></div>
+      <h3>Who can approve high-risk requests</h3>
+      <p class="muted" style="font-size:.88rem">Reveals, reorganizations and VAULT.md changes. A paired Satchel phone or watch signs its decisions with a hardware key after biometrics.</p>
+      <select id="devsig" style="margin:0">
+        <option value="when_paired" ${devSig === "when_paired" ? "selected" : ""}>Only a paired phone or watch, once one is paired (recommended)</option>
+        <option value="always" ${devSig === "always" ? "selected" : ""}>Only a paired phone or watch, always</option>
+        <option value="never" ${devSig === "never" ? "selected" : ""}>Also this admin page and the web companion</option>
+      </select></div>
     <div class="card"><h3 style="margin-top:0">Always-masked fields</h3><p class="muted" style="font-size:.88rem">Field names matching any pattern (regular expressions, case-insensitive) are masked for agents and kept out of the search index. Agents can mark more fields sensitive, never fewer.</p>
       <textarea id="pats" style="min-height:200px">${esc(policy.sensitivePatterns.join("\n"))}</textarea>
-      <button id="reset" style="margin-top:8px">Reset to defaults</button></div></div>`,
+      <button id="reset" style="margin-top:8px">Reset to defaults</button></div>
+    <div class="card"><h3 style="margin-top:0">Passkeys</h3><p class="muted" style="font-size:.88rem">Sign in to this page with Touch ID, Face ID, Windows Hello or a security key instead of the password. ${passkeyCapable() ? "" : `<b>Open this page by name (https://… or <a href="${location.protocol}//localhost:${location.port}${location.pathname}#security">localhost</a>) to use passkeys.</b>`}</p>
+      ${passkeys.length ? `<div class="list">${passkeys.map((p) => `<div><div><b>${esc(p.name)}</b><div class="muted" style="font-size:.85rem">added ${ago(p.created_at)} · last used ${ago(p.last_used)}</div></div><button class="danger" data-pk="${esc(p.id)}">Remove</button></div>`).join("")}</div>` : `<p class="muted">No passkeys yet.</p>`}
+      <div class="row"><input type="text" id="pkname" placeholder="This Mac" style="max-width:220px;margin:0"><button id="addpk" ${passkeyCapable() ? "" : "disabled"}>Add a passkey</button></div></div></div>`,
   );
   $("#reset").onclick = () => ($("#pats").value = defaults.sensitivePatterns.join("\n"));
   $("#save").onclick = async () => {
     const approvalsSet = {};
     for (const s of root.querySelectorAll("#appr select")) approvalsSet[s.name] = s.value;
+    approvalsSet.deviceSignature = $("#devsig").value;
     try {
       await api("/policy", {
         method: "PUT",
@@ -423,6 +518,22 @@ async function security() {
       toast(err.message);
     }
   };
+  $("#addpk").onclick = async () => {
+    try {
+      const { id, options } = await api("/passkeys/register/options", { method: "POST", body: {} });
+      await api("/passkeys/register/verify", { method: "POST", body: { id, name: $("#pkname").value || "Passkey", response: await passkeyCreate(options) } });
+      toast("Passkey added");
+      route();
+    } catch (err) {
+      toast(err.name === "NotAllowedError" ? "Cancelled" : err.message);
+    }
+  };
+  for (const b of root.querySelectorAll("[data-pk]"))
+    b.onclick = async () => {
+      if (!confirm("Remove this passkey?")) return;
+      await api(`/passkeys/${encodeURIComponent(b.dataset.pk)}`, { method: "DELETE" });
+      route();
+    };
 }
 
 async function phone(ov) {
@@ -433,16 +544,17 @@ async function phone(ov) {
     "Phone",
     "",
     `<div class="grid g2"><div class="card"><h3 style="margin-top:0">Pair a phone</h3>
-      <p class="muted">Your phone becomes the second factor: approvals, values agents send you, and document capture. It talks to this node directly${ov.public_url ? " through your relay URL" : " on your network"}.</p>
+      <p class="muted">Install the Satchel app on iPhone or Android and scan this code. The phone creates a hardware key that signs your approvals after Face ID or a fingerprint. It talks to this node directly${ov.public_url ? " through your relay URL, pinned to this node's own key" : " on your network"}. Watches enroll through the phone.</p>
       <button class="primary" id="pair">Show pairing code</button><div id="pairing" style="margin-top:12px"></div></div>
     <div class="card"><h3 style="margin-top:0">Paired devices</h3>
-      ${devices.length ? `<div class="list">${devices.map((d) => `<div><div><b>${esc(d.name)}</b><div class="muted" style="font-size:.85rem">last seen ${ago(d.last_seen)}</div></div><button class="danger" data-rm="${d.id}">Remove</button></div>`).join("")}</div>` : `<p class="muted">None yet.</p>`}
+      ${devices.length ? `<div class="list">${devices.map((d) => `<div><div><b>${esc(d.name)}</b> ${d.signing ? `<span class="pill ok">${esc(PLATFORMS[d.platform] ?? d.platform)}${d.kind === "watch" ? " watch" : ""}</span>` : `<span class="pill">web companion</span>`}<div class="muted" style="font-size:.85rem">${d.signing ? `${d.hardware ? "hardware key" : "software key"} · <code>${esc(d.key_fingerprint)}</code> · ` : ""}last seen ${ago(d.last_seen)}</div></div><button class="danger" data-rm="${d.id}">Remove</button></div>`).join("")}</div>` : `<p class="muted">None yet.</p>`}
       <h3>Sent to you</h3>${deliveries.length ? `<div class="list">${deliveries.map((d) => `<div><span>${esc(d.title)} <span class="muted">from ${esc(d.client_name)}</span></span><span class="muted">${ago(d.at)}</span></div>`).join("")}</div>` : `<p class="muted">Nothing. Values agents send you appear on your phone and are deleted after 24 hours.</p>`}</div></div>`,
   );
   $("#pair").onclick = async () => {
     const p = await api("/pair", { method: "POST" });
     $("#pairing").innerHTML =
-      `<div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes</p><div class="snippet">${esc(p.url)}</div>`;
+      `<div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes ${p.link.includes("pin=") ? '· <span class="pill ok">pinned</span>' : '· <span class="pill warn">local, not pinned</span>'}</p>
+      <div class="snippet">${esc(p.link)}</div><p class="muted" style="font-size:.85rem">No app? The <a href="${esc(p.pwa)}">web companion</a> can view and deny, but can't approve high-risk requests.</p>`;
   };
   for (const b of root.querySelectorAll("[data-rm]"))
     b.onclick = async () => {

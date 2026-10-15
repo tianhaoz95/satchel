@@ -1,6 +1,7 @@
 // Generates spec/companion/test-vectors.json: canonical messages, a TEST-ONLY P-256 key and node
 // signatures that the Swift and Kotlin clients must reproduce and verify. Re-run only when the
-// protocol changes (the key is regenerated, so client-produced signatures must be re-added).
+// protocol changes. The key is regenerated, so re-run the Swift and Kotlin vector tests with
+// SATCHEL_WRITE_CLIENT_SIGNATURES=1 to refresh spec/companion/client-signatures/.
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { approvalDetailHash, approvalMessage, b64url, enrollMessage, pairingLink, pairingMessage } from "../packages/core/src/companion.ts";
@@ -50,8 +51,6 @@ const vectors = {
       pin: "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=",
     }),
   },
-  /** Signatures produced by each client implementation over the same messages; verified by the node tests. */
-  client_signatures: {} as Record<string, { pairing: string; enroll: string; approval: string }>,
 };
 writeFileSync("spec/companion/test-vectors.json", `${JSON.stringify(vectors, null, 2)}\n`);
 console.log("wrote spec/companion/test-vectors.json");

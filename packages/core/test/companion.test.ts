@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import {
   approvalDetailHash,
@@ -41,7 +41,11 @@ test("node signatures verify; tampered messages don't", () => {
 });
 
 test("signatures produced by the Swift and Kotlin clients verify on the node", () => {
-  const clients = Object.entries(vectors.client_signatures as Record<string, Record<string, string>>);
+  const dir = path.join(import.meta.dirname, "..", "..", "..", "spec", "companion", "client-signatures");
+  const clients = readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => [f, JSON.parse(readFileSync(path.join(dir, f), "utf8"))] as const);
+  assert.ok(clients.length >= 1, "client signature files present");
   for (const [client, sigs] of clients) {
     for (const k of ["pairing", "enroll", "approval"]) assert.ok(verifySignature(pub, vectors[k].message, sigs[k]), `${client} ${k}`);
   }

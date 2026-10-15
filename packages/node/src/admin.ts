@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import QRCode from "qrcode";
-import { pairingLink, DEFAULT_POLICY, type Grant, keyFingerprint, sensitiveKeys, VaultError } from "@satchel/core";
+import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse } from "@simplewebauthn/server";
+import { b64url, DEFAULT_POLICY, fromB64url, type Grant, keyFingerprint, pairingLink, sensitiveKeys, VaultError } from "@satchel/core";
 import { checkPassword } from "./config.ts";
 import type { SatchelNode } from "./node.ts";
 import { tunnelStatus } from "./tunnel.ts";
@@ -12,6 +13,8 @@ const sessions = new Map<string, number>();
 const oneTimeLogins = new Map<string, number>();
 const failures = new Map<string, { count: number; until: number }>();
 const SESSION_MS = 12 * 3600_000;
+/** WebAuthn challenges by request id (registration and sign-in), single use, 5 minutes. */
+const challenges = new Map<string, { challenge: string; until: number }>();
 
 /** Used by the desktop app to open the admin UI without asking for the password it already holds. */
 export function createOneTimeLogin(): string {
@@ -52,7 +55,45 @@ export function adminRouter(node: SatchelNode): Router {
     }
   };
 
-  r.get("/session", (req, res) => res.json({ authenticated: isAdmin(req), initialized: !!node.config.owner, name: node.config.name }));
+  r.get("/session", (req, res) =>
+    res.json({ authenticated: isAdmin(req), initialized: !!node.config.owner, name: node.config.name, passkeys: node.store.listPasskeys().length > 0 }),
+  );
+
+  // ---- passkey sign-in (WebAuthn). The relying party is this node's own hostname.
+  r.post("/login/passkey/options", async (req, res) => {
+    const options = await generateAuthenticationOptions({
+      rpID: req.hostname,
+      userVerification: "required",
+      allowCredentials: node.store.listPasskeys().map((p) => ({ id: p.id, transports: p.transports })),
+    });
+    const id = randomBytes(16).toString("base64url");
+    challenges.set(id, { challenge: options.challenge, until: Date.now() + 5 * 60_000 });
+    res.json({ id, options });
+  });
+
+  r.post("/login/passkey/verify", async (req, res) => {
+    const pending = challenges.get(String(req.body?.id ?? ""));
+    challenges.delete(String(req.body?.id ?? ""));
+    const response = req.body?.response;
+    const stored = response?.id ? node.store.getPasskey(String(response.id)) : undefined;
+    if (!pending || pending.until < Date.now() || !stored) return res.status(401).json({ error: "Passkey not recognized" });
+    try {
+      const result = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: pending.challenge,
+        expectedOrigin: `${req.protocol}://${req.get("host")}`,
+        expectedRPID: req.hostname,
+        requireUserVerification: true,
+        credential: { id: stored.id, publicKey: fromB64url(stored.public_key), counter: stored.counter, transports: stored.transports as any },
+      });
+      if (!result.verified) return res.status(401).json({ error: "Passkey verification failed" });
+      node.store.updatePasskeyCounter(stored.id, result.authenticationInfo.newCounter);
+      startSession(req, res);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(401).json({ error: err.message });
+    }
+  });
 
   r.post("/login", (req, res) => {
     const ip = req.socket.remoteAddress ?? "?";
@@ -284,18 +325,67 @@ export function adminRouter(node: SatchelNode): Router {
     }),
   );
 
+  // ---- passkeys (management, signed-in only)
+  r.get(
+    "/passkeys",
+    wrap(() => node.store.listPasskeys().map(({ public_key, ...p }) => p)),
+  );
+  r.post("/passkeys/register/options", async (req, res) => {
+    const options = await generateRegistrationOptions({
+      rpName: "Satchel",
+      rpID: req.hostname,
+      userName: "owner",
+      userDisplayName: `Owner of ${node.config.name}`,
+      userID: new TextEncoder().encode(node.config.nodeId),
+      attestationType: "none",
+      excludeCredentials: node.store.listPasskeys().map((p) => ({ id: p.id, transports: p.transports })),
+      authenticatorSelection: { residentKey: "preferred", userVerification: "required" },
+    });
+    const id = randomBytes(16).toString("base64url");
+    challenges.set(id, { challenge: options.challenge, until: Date.now() + 5 * 60_000 });
+    res.json({ id, options });
+  });
+  r.post("/passkeys/register/verify", async (req, res) => {
+    const pending = challenges.get(String(req.body?.id ?? ""));
+    challenges.delete(String(req.body?.id ?? ""));
+    if (!pending || pending.until < Date.now()) return res.status(400).json({ error: "Expired, try again" });
+    try {
+      const result = await verifyRegistrationResponse({
+        response: req.body.response,
+        expectedChallenge: pending.challenge,
+        expectedOrigin: `${req.protocol}://${req.get("host")}`,
+        expectedRPID: req.hostname,
+        requireUserVerification: true,
+      });
+      if (!result.verified) return res.status(400).json({ error: "Passkey verification failed" });
+      const c = result.registrationInfo.credential;
+      node.store.addPasskey({
+        id: c.id,
+        public_key: b64url(c.publicKey),
+        counter: c.counter,
+        transports: c.transports ?? [],
+        name: String(req.body?.name || "Passkey").slice(0, 60),
+      });
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+  r.delete(
+    "/passkeys/:id",
+    wrap((req) => node.store.removePasskey(String(req.params.id))),
+  );
+
   // ---- companion devices
   r.get(
     "/devices",
     wrap(() =>
-      node.store
-        .listDevices()
-        .map(({ push_ticket, public_key, ...d }) => ({
-          ...d,
-          signing: !!public_key,
-          push: !!push_ticket,
-          key_fingerprint: public_key ? keyFingerprint(public_key) : null,
-        })),
+      node.store.listDevices().map(({ push_ticket, public_key, ...d }) => ({
+        ...d,
+        signing: !!public_key,
+        push: !!push_ticket,
+        key_fingerprint: public_key ? keyFingerprint(public_key) : null,
+      })),
     ),
   );
   r.delete(
