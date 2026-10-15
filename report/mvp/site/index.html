@@ -211,9 +211,9 @@ sensitive: [license_number]</pre>
         <li>Admin UI, phone PWA, web app, Electron app (screens above)</li>
         <li>macOS Vision OCR helper on a rendered test image</li>
         <li>Supabase migration + RLS rules (run under PGlite with stubbed <code>auth</code>)</li>
+        <li>In CI: lint, typecheck, tests on Linux/macOS/Windows, browser smoke tests, Docker images build and start</li>
       </ul></div>
       <div class="card warn"><h3>Built, not verified here</h3><ul>
-        <li>Docker images (Docker daemon unresponsive on this machine)</li>
         <li>Let's Encrypt DNS-01 issuance (needs a real domain + Cloudflare zone)</li>
         <li>Real Supabase project / Cloudflare deploy / GitHub Actions runs</li>
         <li>Web Push delivery to a real phone; electron-builder installers and signing</li>
