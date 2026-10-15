@@ -7,6 +7,7 @@ import { checkPassword } from "./config.ts";
 import type { SatchelNode } from "./node.ts";
 import { tunnelStatus } from "./tunnel.ts";
 import { tlsPin } from "./certs.ts";
+import { isLoopback, lanIPv4, mdnsName, pairingAddress } from "./lan.ts";
 import { sendDecisionError } from "./companion.ts";
 
 const sessions = new Map<string, number>();
@@ -45,6 +46,8 @@ export function isAdmin(req: Request): boolean {
 }
 
 export function adminRouter(node: SatchelNode): Router {
+  /** The interface the HTTP server was started on (listen changes apply after a restart). */
+  const listeningHost = node.config.listen.host;
   const r = Router();
   const wrap = (fn: (req: Request, res: Response) => Promise<unknown> | unknown) => async (req: Request, res: Response) => {
     try {
@@ -309,6 +312,14 @@ export function adminRouter(node: SatchelNode): Router {
       relay: node.config.relay ? { control: node.config.relay.control } : null,
       publicHost: node.config.publicHost,
       helpers: node.config.helpers,
+      home_network: {
+        reachable: !isLoopback(node.config.listen.host),
+        listen_host: node.config.listen.host,
+        lan_url: node.config.lanUrl,
+        suggestions: [mdnsName(), ...lanIPv4()].filter(Boolean).map((h) => `http://${h}:${node.config.listen.port}`),
+        // A setting that differs from what the server is bound to right now needs a restart.
+        restart_required: listeningHost !== node.config.listen.host,
+      },
     })),
   );
   r.put(
@@ -320,8 +331,14 @@ export function adminRouter(node: SatchelNode): Router {
       if (Array.isArray(b.roots)) patch.roots = b.roots.map((x: any) => ({ name: String(x.name), path: String(x.path) }));
       if (b.inbox !== undefined) patch.inbox = b.inbox ? String(b.inbox) : null;
       if (b.helpers) patch.helpers = b.helpers;
+      if (typeof b.reachable === "boolean") patch.listen = { ...node.config.listen, host: b.reachable ? "0.0.0.0" : "127.0.0.1" };
+      if (b.lan_url !== undefined) {
+        const u = String(b.lan_url ?? "").trim();
+        if (u && !/^https?:\/\/[^\s/]+(:\d+)?\/?$/.test(u)) throw new VaultError("Home network address must look like http://nas.local:7710");
+        patch.lanUrl = u ? u.replace(/\/$/, "") : null;
+      }
       node.saveConfig(patch);
-      return { ok: true };
+      return { ok: true, restart_required: listeningHost !== node.config.listen.host };
     }),
   );
 
@@ -396,12 +413,18 @@ export function adminRouter(node: SatchelNode): Router {
     "/pair",
     wrap(async (req) => {
       const code = node.store.createPairingCode();
-      const base = node.config.publicHost ? `https://${node.config.publicHost}` : `${req.protocol}://${req.get("host")}`;
-      const pin = tlsPin(node.dataDir);
+      const address = pairingAddress({
+        publicHost: node.config.publicHost,
+        lanUrl: node.config.lanUrl,
+        listenHost: node.config.listen.host,
+        port: req.socket.localPort ?? node.config.listen.port,
+        requestHost: req.get("host"),
+      });
+      const pin = address.scope === "relay" ? tlsPin(node.dataDir) : null;
       // Native apps scan the satchel:// link (it carries the TLS pin); the PWA link is a read-only fallback.
-      const link = pairingLink({ url: base, code, nodeId: node.config.nodeId, nodeName: node.config.name, pin: node.config.publicHost ? pin : null });
-      const pwa = `${base}/app/#pair=${code}`;
-      return { code, link, pwa, pin, url: pwa, qr: await QRCode.toString(link, { type: "svg", margin: 1 }) };
+      const link = pairingLink({ url: address.url, code, nodeId: node.config.nodeId, nodeName: node.config.name, pin });
+      const pwa = `${address.url}/app/#pair=${code}`;
+      return { code, link, pwa, pin, url: pwa, address, qr: await QRCode.toString(link, { type: "svg", margin: 1 }) };
     }),
   );
   r.get(

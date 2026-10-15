@@ -79,4 +79,5 @@ The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, O
 - Simulator builds are ad-hoc signed (`CODE_SIGN_IDENTITY: "-"`); fully unsigned builds can't use the Keychain (error -34018). Simulators keep Keychain items across reinstalls: run `xcrun simctl keychain <udid> reset` for a clean pairing.
 - Android: AGP 9.2 needs Gradle ≥ 9.4.1, and Compose BOM 2026.09 needs compileSdk 37. No JVM toolchain is pinned; builds use the running JDK. This Mac is low on internal disk, so Android is tested on a physical device, not emulators.
 - WebAuthn relying parties must be hostnames: admin passkeys don't work when the page is opened by IP (`127.0.0.1`), so use `localhost` or the node's domain.
+- Pairing addresses come from `packages/node/src/lan.ts`: the relay host if connected, otherwise the configured `lanUrl` / `SATCHEL_LAN_URL`, the non-loopback request host, the `.local` name, then a LAN IP. Never a loopback address. Without a relay, phones work only on the home network.
 - The `satchel.dev` domain is a placeholder. Deploy workflows skip until the Cloudflare/Supabase secrets and variables exist (see `report/mvp/site/index.html#cicd`).

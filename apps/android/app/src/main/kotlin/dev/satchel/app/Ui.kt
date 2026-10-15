@@ -256,7 +256,7 @@ fun PinNote(pinned: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(if (pinned) Icons.Outlined.Lock else Icons.Outlined.Warning, null, tint = if (pinned) Accent else Warn, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
-        Text(if (pinned) "Pinned to your node's own key" else "Local connection without TLS: only on your own network", fontSize = 13.sp, color = if (pinned) Accent else Warn)
+        Text(if (pinned) "Pinned to your node's own key" else "Home network only, without TLS. Connect a relay to use Satchel anywhere.", fontSize = 13.sp, color = if (pinned) Accent else Warn)
     }
 }
 

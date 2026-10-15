@@ -7,6 +7,7 @@ services:
     environment:
       SATCHEL_NAME: "Home NAS"
       SATCHEL_PASSWORD: "change-me"          # remove after the first start if you like
+      # SATCHEL_LAN_URL: "http://nas.local:7710"   # how phones reach the node at home without a relay
       # SATCHEL_RELAY: "relay.satchel.dev:7443"  # from the portal, to reach cloud agents
       # SATCHEL_RELAY_TOKEN: "satchel_node_..."
     volumes:

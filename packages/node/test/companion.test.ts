@@ -77,6 +77,10 @@ test("before any phone is paired, the admin UI can still approve high-risk reque
 test("pairing requires proof of the private key and a valid code", async () => {
   const pair = await api("/admin/api/pair", { cookie: admin, body: {} });
   assert.match(pair.body.link, /^satchel:\/\/pair\?v=2&/);
+  // Local-only node: home-network scope, never a loopback URL, and a warning that it only listens locally.
+  assert.equal(pair.body.address.scope, "lan");
+  assert.doesNotMatch(decodeURIComponent(pair.body.link), /url=http:\/\/(127\.0\.0\.1|localhost)/);
+  assert.match(pair.body.address.warnings.join(" "), /only accepts connections from this computer/);
   const key = newKey();
   const nodeId = running.node.config.nodeId;
   const wrong = newKey();

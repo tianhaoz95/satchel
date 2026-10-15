@@ -552,8 +552,9 @@ async function phone(ov) {
   );
   $("#pair").onclick = async () => {
     const p = await api("/pair", { method: "POST" });
-    $("#pairing").innerHTML =
-      `<div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes ${p.link.includes("pin=") ? '· <span class="pill ok">pinned</span>' : '· <span class="pill warn">local, not pinned</span>'}</p>
+    $("#pairing").innerHTML = `${p.address.warnings.map((w) => `<p class="error" style="font-size:.88rem">${esc(w)}</p>`).join("")}
+      <p style="font-size:.9rem">${p.address.scope === "relay" ? `Works anywhere: <code>${esc(p.address.url)}</code>` : `<b>Home network only:</b> the phone will reach <code>${esc(p.address.url)}</code> while it's on the same Wi-Fi. Connect a relay to use it anywhere.`}</p>
+      <div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes ${p.link.includes("pin=") ? '· <span class="pill ok">pinned</span>' : '· <span class="pill warn">local, not pinned</span>'}</p>
       <div class="snippet">${esc(p.link)}</div><p class="muted" style="font-size:.85rem">No app? The <a href="${esc(p.pwa)}">web companion</a> can view and deny, but can't approve high-risk requests.</p>`;
   };
   for (const b of root.querySelectorAll("[data-rm]"))
@@ -577,6 +578,12 @@ async function settings() {
       <button id="addroot">Add folder</button></div>
     <div class="card"><h3 style="margin-top:0">Relay</h3>
       ${s.relay ? `<div class="list"><div><span>Control</span><code>${esc(s.relay.control)}</code></div><div><span>Public host</span><code>${esc(s.publicHost ?? "pending")}</code></div></div>` : `<p class="muted">Not connected. Get a node token from your Satchel account (or your own relay), then run<br><code>satchel connect --relay HOST:7443 --token …</code></p>`}
+      <h3>Home network</h3>
+      <p class="muted" style="font-size:.88rem">Without a relay, phones reach this node only on your home network, over plain HTTP. With a relay they work anywhere, encrypted and pinned.</p>
+      <label class="check"><input type="checkbox" id="reachable" ${s.home_network.reachable ? "checked" : ""}> Reachable on my home network <span class="muted">(otherwise only this computer can connect)</span></label>
+      ${s.home_network.restart_required ? `<p class="pill warn" style="display:inline-block">Restart Satchel to apply</p>` : ""}
+      <label>Home network address <span class="muted">(optional)</span><input type="text" id="lanurl" value="${esc(s.home_network.lan_url ?? "")}" placeholder="${esc(s.home_network.suggestions[0] ?? "http://nas.local:7710")}"></label>
+      <p class="muted" style="font-size:.85rem">Used in pairing codes when there's no relay. Leave empty to detect it${s.home_network.suggestions.length ? ` (detected: ${s.home_network.suggestions.map((u) => `<code>${esc(u)}</code>`).join(", ")})` : ""}. Set it when Satchel runs in Docker. Android phones need a <code>.local</code> name.</p>
       <h3>Helpers</h3><p class="muted" style="font-size:.88rem">The desktop app can OCR scans and run a small local model to suggest metadata. Nothing leaves this machine.</p>
       <label class="check"><input type="checkbox" id="ocr" ${s.helpers.ocr ? "checked" : ""}> OCR images and scanned PDFs</label>
       <label>Local model endpoint (Ollama compatible)<input type="text" id="llm" value="${esc(s.helpers.llm?.url ?? "")}" placeholder="http://127.0.0.1:11434"></label>
@@ -596,11 +603,23 @@ async function settings() {
       })
       .filter((r) => r.name && r.path);
     const llm = $("#llm").value.trim() ? { url: $("#llm").value.trim(), model: $("#model").value.trim() || "qwen3:1.7b" } : null;
-    await api("/settings", {
-      method: "PUT",
-      body: { name: $("#name").value, inbox: $("#inbox").value.trim() || null, roots, helpers: { ocr: $("#ocr").checked, llm } },
-    });
-    toast("Saved");
+    try {
+      const res = await api("/settings", {
+        method: "PUT",
+        body: {
+          name: $("#name").value,
+          inbox: $("#inbox").value.trim() || null,
+          roots,
+          helpers: { ocr: $("#ocr").checked, llm },
+          reachable: $("#reachable").checked,
+          lan_url: $("#lanurl").value.trim(),
+        },
+      });
+      toast(res.restart_required ? "Saved. Restart Satchel to apply the network change." : "Saved");
+      route();
+    } catch (err) {
+      toast(err.message);
+    }
   };
 }
 

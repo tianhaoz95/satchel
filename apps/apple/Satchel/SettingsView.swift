@@ -16,7 +16,7 @@ struct SettingsView: View {
                     if c.pin != nil {
                         Label("Pinned to the node's own key", systemImage: "lock.fill").foregroundStyle(Theme.accent)
                     } else {
-                        Label("Local connection, not pinned", systemImage: "exclamationmark.triangle").foregroundStyle(Theme.warn)
+                        Label("Home network only (no relay)", systemImage: "wifi").foregroundStyle(Theme.warn)
                     }
                     if let policy = model.node?.policy.deviceSignature {
                         LabeledContent("High-risk approvals", value: policy == "never" ? "anywhere" : "signed devices only")

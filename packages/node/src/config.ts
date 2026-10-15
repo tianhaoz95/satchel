@@ -30,6 +30,8 @@ export type NodeConfig = {
   relay: RelayConfig | null;
   /** Public hostname assigned by the relay, e.g. "alice.satchel.dev". Filled in on first connect. */
   publicHost: string | null;
+  /** How phones on the home network reach this node without a relay, e.g. "http://nas.local:7710". */
+  lanUrl: string | null;
   /** Folder (vault path) where phone captures land. */
   inbox: string | null;
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
@@ -57,6 +59,7 @@ export function loadConfig(dataDir: string): NodeConfig {
     tlsPort: 7711,
     relay: null,
     publicHost: null,
+    lanUrl: process.env.SATCHEL_LAN_URL ?? null,
     inbox: null,
     vapid: null,
     push: { gateway: process.env.SATCHEL_PUSH_GATEWAY ?? "https://push.satchel.dev" },
@@ -64,7 +67,13 @@ export function loadConfig(dataDir: string): NodeConfig {
   };
   if (!existsSync(file)) return base;
   const saved = JSON.parse(readFileSync(file, "utf8"));
-  return { ...base, ...saved, policy: { ...DEFAULT_POLICY, ...saved.policy, approvals: { ...DEFAULT_POLICY.approvals, ...saved.policy?.approvals } } };
+  return {
+    ...base,
+    ...saved,
+    // The environment (e.g. Docker's SATCHEL_LAN_URL) fills in when the config doesn't set it.
+    lanUrl: saved.lanUrl ?? base.lanUrl,
+    policy: { ...DEFAULT_POLICY, ...saved.policy, approvals: { ...DEFAULT_POLICY.approvals, ...saved.policy?.approvals } },
+  };
 }
 
 export function saveConfig(dataDir: string, config: NodeConfig) {

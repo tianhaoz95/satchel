@@ -64,7 +64,7 @@ struct PinNote: View {
         if link.isPinned {
             Label("Encrypted to your node's own key (pinned)", systemImage: "lock.fill").font(.footnote).foregroundStyle(Theme.accent)
         } else {
-            Label("Local connection without TLS: only pair on your own network", systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(Theme.warn)
+            Label("Home network only, without TLS. Connect a relay to use Satchel anywhere.", systemImage: "wifi").font(.footnote).foregroundStyle(Theme.warn)
         }
     }
 }
