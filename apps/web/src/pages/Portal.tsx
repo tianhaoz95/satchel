@@ -120,7 +120,7 @@ export default function Portal({ user }: { user: User | null }) {
     <main className="container section portal">
       <div className="portal-head">
         <div>
-          <p className="eyebrow">Signed in as {user.email}</p>
+          <p className="eyebrow">Signed in as {user.login ? `@${user.login}` : user.email}</p>
           <h1>Your nodes</h1>
         </div>
         <button type="button" onClick={() => backend.signOut()}>
@@ -192,7 +192,7 @@ export default function Portal({ user }: { user: User | null }) {
         <div className="card">
           <h3>What this account holds</h3>
           <ul className="plain">
-            <li>Your email address</li>
+            <li>Your GitHub login (username and email)</li>
             <li>Node names and addresses</li>
             <li>A SHA-256 hash of each node token</li>
             <li>Online status reported by the relay</li>

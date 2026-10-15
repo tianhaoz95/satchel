@@ -83,9 +83,9 @@
       <p class="muted small">Project URL: <code>https://<span data-v="ref"></span>.supabase.co</code></p>
     </section>
 
-    <section id="s3" class="step" data-title="OAuth sign-in provider">
+    <section id="s3" class="step" data-title="GitHub OAuth app">
       <h2><span class="num">3</span>Create the GitHub OAuth app (portal sign-in)</h2>
-      <p>The portal offers <b>email magic link</b> and <b>Continue with GitHub</b>. GitHub sign-in needs an OAuth app that sends users back to Supabase, not to your site.</p>
+      <p>The portal signs people in with <b>GitHub only</b>, so there are no emails to send and no SMTP to set up. GitHub sign-in needs an OAuth app that sends users back to Supabase, not to your site.</p>
       <ol class="checks">
         <li data-id="3a">GitHub → <b>Settings → Developer settings → OAuth Apps → New OAuth App</b>. Use an organization if you have one, so the app isn't tied to a personal account.</li>
         <li data-id="3b">Fill in:
@@ -97,10 +97,6 @@
         </li>
         <li data-id="3c"><b>Generate a new client secret.</b> Copy the <b>Client ID</b> and <b>Client secret</b>. You'll paste them into Supabase in the next step and nowhere else.</li>
       </ol>
-      <details>
-        <summary>Optional: Google sign-in as well</summary>
-        <p>Google Cloud Console → <b>APIs &amp; Services → Credentials → Create OAuth client ID</b> (type <i>Web application</i>). Authorized redirect URI: <code>https://<span data-v="ref"></span>.supabase.co/auth/v1/callback</code>. Configure the consent screen with your domain. Then enable <b>Google</b> under Supabase Auth providers with that client ID and secret. The portal currently shows only a GitHub button; adding Google is a one-line change in <code>apps/web/src/data.ts</code> (<code>provider: "google"</code>) plus a button in <code>Login.tsx</code>.</p>
-      </details>
     </section>
 
     <section id="s4" class="step" data-title="Supabase Auth settings">
@@ -113,8 +109,7 @@
             <tr><td>Redirect URLs</td><td><code class="copy">https://<span data-v="domain"></span>/portal</code><br><code class="copy">https://*.<span data-v="pages"></span>.pages.dev/**</code> <span class="muted">(PR previews)</span><br><code class="copy">http://localhost:5180/portal</code> <span class="muted">(local dev)</span></td></tr>
           </table>
         </li>
-        <li data-id="4c"><b>Authentication → Emails → SMTP</b>: set up a custom SMTP sender (Resend, Postmark, SES…) on <code>auth@<span data-v="domain"></span></code>. Supabase's built-in mailer is heavily rate-limited and meant only for testing, so magic links will stall without this.</li>
-        <li data-id="4d">Optional: customize the <b>Magic Link</b> email template so it says Satchel.</li>
+        <li data-id="4c"><b>Authentication → Sign In / Providers → Email</b>: turn it <b>off</b> (it's on by default). With email disabled, GitHub is the only way to create an account, and you never need an email sender.</li>
       </ol>
     </section>
 
@@ -182,7 +177,7 @@ chmod 600 .env</pre></li>
         <li data-id="8b">Deploy the site: <code>gh workflow run web.yml</code> (or push to <code>main</code>). Then attach the custom domain (step 5c) and open <code>https://<span data-v="domain"></span></code>.</li>
         <li data-id="8c">Publish the images: <code>git tag v0.1.0 &amp;&amp; git push --tags</code>. When <b>Container images</b> finishes, make the two packages <b>public</b> (GitHub → your profile → Packages → <code>satchel-node</code> / <code>satchel-relay</code> → Package settings → Change visibility) so the VPS and NAS users can pull them without logging in.</li>
         <li data-id="8d"><b>Deploy hosted relay</b> runs after the images; or start it by hand on the VPS: <code>cd /opt/satchel-relay &amp;&amp; docker compose up -d</code>. Check: <code>curl https://relay.<span data-v="domain"></span>/healthz</code> → <code>{"ok":true}</code>.</li>
-        <li data-id="8e">End to end: sign in on the portal with GitHub and with an email link, create a node, then on your machine:
+        <li data-id="8e">End to end: sign in on the portal with GitHub, create a node, then on your machine:
           <pre class="cmd">node packages/node/src/cli.ts connect --relay relay.<span data-v="domain"></span>:7443 --token satchel_node_…
 node packages/node/src/cli.ts serve</pre>
           The portal should show the node <b>online</b>, and <code>https://NAME.<span data-v="domain"></span>/mcp</code> should answer 401 with OAuth metadata.</li>

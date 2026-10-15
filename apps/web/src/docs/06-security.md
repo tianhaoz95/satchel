@@ -6,7 +6,7 @@
 |---|---|
 | **Your node** | Everything. It's your hardware |
 | **The relay (satchel.dev or yours)** | Your subdomain (from the TLS SNI field), connection times and byte counts. Not requests, not responses, not tokens |
-| **The portal / Supabase** | Your email, subdomain, a SHA-256 hash of your node token, online status |
+| **The portal / Supabase** | Your GitHub login (username, email), subdomain, a SHA-256 hash of your node token, online status |
 | **An agent's model provider** | Only what the agent reads: answers to queries, masked metadata, redacted text, and values you explicitly approve |
 | **Push services (Apple/Google)** | That a notification happened. Web Push payloads are encrypted to your device and never contain values |
 

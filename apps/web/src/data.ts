@@ -10,7 +10,8 @@ export type NodeRow = {
   last_seen_at: string | null;
   reported_name: string | null;
 };
-export type User = { id: string; email: string };
+/** Portal accounts are GitHub accounts (Supabase Auth, GitHub provider only). */
+export type User = { id: string; email: string; login: string | null };
 
 export const RELAY_CONTROL = import.meta.env.VITE_RELAY_CONTROL || "relay.satchel.dev:7443";
 export const RELAY_DOMAIN = import.meta.env.VITE_RELAY_DOMAIN || "satchel.dev";
@@ -37,7 +38,6 @@ export interface Backend {
   demo: boolean;
   user(): Promise<User | null>;
   onAuth(fn: (u: User | null) => void): () => void;
-  signInWithEmail(email: string): Promise<void>;
   signInWithGitHub(): Promise<void>;
   signOut(): Promise<void>;
   listNodes(): Promise<NodeRow[]>;
@@ -45,6 +45,11 @@ export interface Backend {
   rotateToken(id: string, tokenHash: string): Promise<void>;
   revokeNode(id: string): Promise<void>;
   deleteAccount(): Promise<void>;
+}
+
+function toUser(u: { id: string; email?: string; user_metadata?: Record<string, unknown> }): User {
+  const login = u.user_metadata?.user_name ?? u.user_metadata?.preferred_username;
+  return { id: u.id, email: u.email ?? "", login: typeof login === "string" ? login : null };
 }
 
 class SupabaseBackend implements Backend {
@@ -55,15 +60,11 @@ class SupabaseBackend implements Backend {
   }
   async user() {
     const { data } = await this.sb.auth.getUser();
-    return data.user ? { id: data.user.id, email: data.user.email ?? "" } : null;
+    return data.user ? toUser(data.user) : null;
   }
   onAuth(fn: (u: User | null) => void) {
-    const { data } = this.sb.auth.onAuthStateChange((_e, s) => fn(s?.user ? { id: s.user.id, email: s.user.email ?? "" } : null));
+    const { data } = this.sb.auth.onAuthStateChange((_e, s) => fn(s?.user ? toUser(s.user) : null));
     return () => data.subscription.unsubscribe();
-  }
-  async signInWithEmail(email: string) {
-    const { error } = await this.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: `${location.origin}/portal` } });
-    if (error) throw error;
   }
   async signInWithGitHub() {
     const { error } = await this.sb.auth.signInWithOAuth({ provider: "github", options: { redirectTo: `${location.origin}/portal` } });
@@ -123,13 +124,10 @@ class DemoBackend implements Backend {
   private emit(u: User | null) {
     for (const f of this.fns) f(u);
   }
-  async signInWithEmail(email: string) {
-    const u = { id: "demo", email };
+  async signInWithGitHub() {
+    const u = { id: "demo", email: "demo@example.com", login: "demo-user" };
     this.write("demo_user", u);
     this.emit(u);
-  }
-  async signInWithGitHub() {
-    return this.signInWithEmail("you@example.com");
   }
   async signOut() {
     localStorage.removeItem("demo_user");

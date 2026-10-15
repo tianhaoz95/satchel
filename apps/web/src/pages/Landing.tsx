@@ -129,7 +129,7 @@ export default function Landing() {
               </tr>
               <tr>
                 <td>This website</td>
-                <td>Your email and a hash of your node token</td>
+                <td>Your GitHub login and a hash of your node token</td>
                 <td>Anything in your vault</td>
               </tr>
               <tr>

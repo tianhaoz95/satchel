@@ -243,7 +243,7 @@ const SHOTS = {
     ["web-landing.png", "Landing page", "Hero with a real tool-call conversation; flat, no 3D."],
     ["web-landing-full.png", "Landing (full page)", "How it fits together, who sees what, CTA."],
     ["web-docs.png", "Docs", "Nine pages rendered from Markdown in the repo."],
-    ["web-login.png", "Sign in", "Supabase magic link or GitHub; demo mode without env."],
+    ["web-login.png", "Sign in", "GitHub only (Supabase Auth); demo mode without env."],
     ["web-portal.png", "Portal", "Claim a subdomain; the token is shown once, only its hash is stored."],
     ["web-landing-mobile.png", "Landing on a phone", "Responsive at 390 px."],
   ],

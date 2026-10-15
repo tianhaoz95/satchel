@@ -96,8 +96,7 @@ test("web app: landing, docs, sign in and create a node (demo mode)", async () =
     await page.waitForSelector(".prose h1");
   }
   await page.goto(`${webUrl}/login`);
-  await page.fill("input[type=email]", "ci@example.com");
-  await page.click("button[type=submit]");
+  await page.click("text=Continue with GitHub");
   await page.waitForURL("**/portal");
   await page.fill("input[placeholder='Home NAS']", "CI node");
   await page.fill("input[placeholder='alex']", "ci-node");

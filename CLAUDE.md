@@ -53,7 +53,7 @@ The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, O
 4. **Masking only tightens.** Agents can add `sensitive` keys, never remove them. Masked values stay out of the FTS index. `read_file` redacts known sensitive values.
 5. **Prefer delivering over revealing.** `deliver_to_user` sends values to the owner's phone; `reveal_field` needs approval and can be picked up once.
 6. **Everything on disk is plain and portable.** Hidden YAML sidecars (`.<file>.satchel.yaml`) move with their files; undo history is `.satchel/journal.jsonl` inside the vault. The SQLite index is a rebuildable cache.
-7. **The portal stores only** email, subdomain, a SHA-256 hash of the node token, and online status.
+7. **The portal stores only** the GitHub login (username, email), subdomain, a SHA-256 hash of the node token, and online status. Sign-in is **GitHub only** (no email/magic links, no SMTP); keep it that way unless the user decides otherwise.
 8. **Local first.** NAS shares and cloud-synced folders are just local roots; native cloud APIs come later.
 
 ## Gotchas found while building

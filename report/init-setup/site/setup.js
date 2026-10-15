@@ -147,7 +147,7 @@ for (const code of document.querySelectorAll("code.copy")) {
 const SOURCES = [
   { id: "cf", label: "Cloudflare", sub: "account · zone · 2 tokens" },
   { id: "sb", label: "Supabase", sub: "URL · keys · DB password · token" },
-  { id: "gh", label: "GitHub OAuth app", sub: "client ID · client secret" },
+  { id: "gh", label: "GitHub OAuth app", sub: "client ID · client secret (only login)" },
   { id: "vps", label: "Relay VPS", sub: "IP · SSH key · relay cert" },
 ];
 const DESTS = [
