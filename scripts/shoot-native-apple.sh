@@ -14,6 +14,8 @@ run() { local sim=$1 id=$2; shift 2; xcrun simctl terminate "$sim" "$id" >/dev/n
 mkdir -p "$OUT"
 
 xcrun simctl uninstall "$IPH" dev.satchel.ios >/dev/null 2>&1 || true
+# Simulators keep Keychain items across reinstalls; start from a clean slate.
+xcrun simctl keychain "$IPH" reset
 xcrun simctl install "$IPH" "$APP"
 xcrun simctl ui "$IPH" appearance light
 run "$IPH" dev.satchel.ios; sleep 4; shot "$IPH" ios-pair
@@ -26,6 +28,7 @@ run "$IPH" dev.satchel.ios -SatchelSkipAuth -SatchelOpenFirstApproval; sleep 9; 
 xcrun simctl ui "$IPH" appearance light
 
 xcrun simctl uninstall "$WAT" dev.satchel.ios.watchkitapp >/dev/null 2>&1 || true
+xcrun simctl keychain "$WAT" reset
 xcrun simctl install "$WAT" "$WAPP"
 run "$WAT" dev.satchel.ios.watchkitapp; sleep 5; shot "$WAT" watch-enroll
 run "$WAT" dev.satchel.ios.watchkitapp -SatchelPairLink "$(link)"; sleep 8; shot "$WAT" watch-approvals

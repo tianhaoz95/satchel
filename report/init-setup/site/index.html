@@ -185,6 +185,27 @@ node packages/node/src/cli.ts serve</pre>
       </ol>
     </section>
 
+    <section id="s9" class="step" data-title="Native apps & push">
+      <h2><span class="num">9</span>Native apps and push notifications</h2>
+      <p>Needed for the iPhone, Apple Watch, Android and Wear OS apps (see <code>report/native</code>). Notifications go through a small push gateway that only learns "wake this device", never content.</p>
+      <ol class="checks">
+        <li data-id="9a"><b>Apple Developer Program.</b> Register the App IDs <code>dev.satchel.ios</code>, <code>dev.satchel.ios.share</code>, <code>dev.satchel.ios.watchkitapp</code> and <code>dev.satchel.ios.watchkitapp.widgets</code>, the app group <code>group.dev.satchel</code>, and Push Notifications. Put your team ID in <code>DEVELOPMENT_TEAM</code> in <code>apps/apple/project.yml</code>.</li>
+        <li data-id="9b"><b>APNs key:</b> Certificates, Identifiers &amp; Profiles → Keys → new key with <i>Apple Push Notifications service</i>. Keep the <code>.p8</code> file, its Key ID and your Team ID.</li>
+        <li data-id="9c"><b>Firebase project</b> (Android push). Add an Android app with package <code>dev.satchel.android</code>. Put its app id, API key, project id and sender id in <code>~/.gradle/gradle.properties</code> as <code>satchel.firebase.appId</code>, <code>.apiKey</code>, <code>.projectId</code>, <code>.senderId</code>. Create a service-account key with the <i>Firebase Cloud Messaging API</i> role.</li>
+        <li data-id="9d"><b>Deploy the push gateway</b> on <code>push.<span data-v="domain"></span></code>:
+          <pre class="cmd">cd apps/push-gateway
+openssl rand -base64 32 | npx wrangler secret put TICKET_KEY
+npx wrangler secret put APNS_KEY_ID
+npx wrangler secret put APNS_TEAM_ID
+npx wrangler secret put APNS_PRIVATE_KEY      # paste the .p8 contents
+npx wrangler secret put FCM_SERVICE_ACCOUNT   # paste the service-account JSON
+npx wrangler deploy</pre>
+          Update the route in <code>apps/push-gateway/wrangler.toml</code> to your domain first. Keep <code>TICKET_KEY</code> safe: changing it invalidates every registered device.</li>
+        <li data-id="9e">Point nodes at it: they default to <code>https://push.satchel.dev</code>. Change <code>push.gateway</code> in the node config, or set <code>SATCHEL_PUSH_GATEWAY</code>; the apps use <code>PushGateway.defaultURL</code> / <code>PushGateway.url</code>.</li>
+        <li data-id="9f"><b>Google Play Console</b> account. The phone and Wear apps share the application id <code>dev.satchel.android</code> and must be signed with the same key (the Wear Data Layer requires it).</li>
+      </ol>
+    </section>
+
     <section id="done">
       <h2>Good to know</h2>
       <ul>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Satchel Native Apps</title>
+<link rel="icon" href="logo.svg">
+<link rel="stylesheet" href="native.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap row">
+    <a class="brand" href="#"><img src="logo.svg" width="22" height="22" alt=""> Satchel · native apps</a>
+    <nav><a href="#summary">Summary</a><a href="#pairing">Why scan to pair</a><a href="#flow">Signed approval</a><a href="#screens">Screens</a><a href="#verified">Verified</a><a href="#ship">To ship</a></nav>
+  </div>
+</header>
+<main class="wrap">
+  <section id="summary" class="hero">
+    <p class="eyebrow">Phase report · 2026-10-14</p>
+    <h1>Phones and watches that sign your approvals in hardware</h1>
+    <p class="lead">Native apps for iPhone, Apple Watch, Android and Wear OS. Each device holds its own P-256 key in the Secure Enclave or Android Keystore. Once a phone is paired, your node accepts a high-risk approval (revealing a value, moving files, changing VAULT.md) only if that device signed it after Face ID or a fingerprint.</p>
+    <div class="stats">
+      <div><b>4</b><span>apps: iOS, watchOS, Android, Wear OS</span></div>
+      <div><b>3</b><span>implementations agreeing on one protocol (TypeScript, Swift, Kotlin)</span></div>
+      <div><b>13 / 13</b><span>CI jobs green, including native builds and live-node tests</span></div>
+      <div><b>0</b><span>bytes of vault content in push notifications</span></div>
+    </div>
+    <div class="callout"><b>Stack decision:</b> fully native. SwiftUI shares the <code>SatchelKit</code> package across iPhone, Watch and the share extension; Jetpack Compose shares <code>:core</code> across phone and Wear OS. Flutter and React Native can't build watchOS apps, and every security feature here is a platform API.</div>
+  </section>
+
+  <section id="pairing">
+    <h2>Why scan to pair, and not just "Sign in with GitHub"?</h2>
+    <p class="muted">GitHub proves who you are to the hosted portal. Pairing proves that <i>this phone</i> belongs to <i>this node</i>. The portal is deliberately not allowed to vouch for that.</p>
+    <div class="who">
+      <div class="card"><h3>GitHub / portal <span class="no">can't enroll</span></h3><p class="muted">If a GitHub login could add a phone, anyone who took over your GitHub account (or the hosted service) could add their own "phone" and approve reveals of your passport number. Two factors would collapse into one.</p></div>
+      <div class="card"><h3>The QR code <span class="yes">carries</span></h3><p class="muted">Your node's address, a one-time code issued from your signed-in admin page, and the <b>pin of the node's own TLS key</b>. The phone trusts that pin, not a certificate authority or the relay.</p></div>
+      <div class="card"><h3>The phone <span class="yes">proves</span></h3><p class="muted">It creates its key in secure hardware and signs the pairing message, so the node learns a key the phone provably holds. Self-hosters with no account pair the same way.</p></div>
+    </div>
+    <p class="muted small">Possible later: "Find my node with GitHub" fills in the address, but a short code shown on your admin page still finalizes pairing, so the node, not GitHub, decides.</p>
+  </section>
+
+  <section id="flow">
+    <h2>A signed approval, step by step</h2>
+    <div class="flow-card">
+      <div class="flow-scroll">
+        <svg class="lanes" id="lanes" viewBox="0 0 980 420" role="img" aria-label="Signed approval sequence">
+          <g id="laneHeads"></g>
+          <g id="msgs"></g>
+          <circle id="pkt" r="6" class="dot" cx="-20" cy="-20"/>
+        </svg>
+      </div>
+      <div class="now">
+        <div class="now-text"><p class="eyebrow" id="stepCount"></p><p id="stepText" aria-live="polite"></p></div>
+        <div class="controls"><button type="button" id="prev" aria-label="Previous step">←</button><button type="button" id="play" class="primary">Play</button><button type="button" id="next" aria-label="Next step">→</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="screens">
+    <h2>Screens</h2>
+    <p class="muted">iPhone and Apple Watch, captured in the simulators against a demo node. Simulators sign with an emulated Secure Enclave key and skip the Face ID prompt via a debug-only flag. The dark-mode shot predates a small change: <b>Deny</b> is now red.</p>
+    <h3>iPhone</h3>
+    <div class="phones" id="ios"></div>
+    <h3>Apple Watch</h3>
+    <div class="phones watches" id="watch"></div>
+    <h3>Android and Wear OS</h3>
+    <p class="muted">Both apps build in CI (debug APKs), and their shared <code>:core</code> passes the protocol vectors and pairs and signs against a live node. On-device testing waits for a physical Android phone; this Mac doesn't have room for emulators.</p>
+  </section>
+
+  <section id="verified">
+    <h2>What's verified</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Check</th><th>TypeScript (node)</th><th>Swift (iOS/watchOS)</th><th>Kotlin (Android/Wear)</th></tr></thead>
+      <tbody>
+        <tr><td>Canonical messages and pairing link match the shared vectors</td><td>✔</td><td>✔</td><td>✔</td></tr>
+        <tr><td>Node-made signatures verify in the client</td><td>–</td><td>✔</td><td>✔</td></tr>
+        <tr><td>Client-made signatures verify on the node</td><td>–</td><td>✔</td><td>✔</td></tr>
+        <tr><td>Pair and sign a high-risk approval against a live node (CI)</td><td>✔</td><td>✔</td><td>✔</td></tr>
+        <tr><td>Tampered, stale and replayed signatures rejected</td><td>✔</td><td>–</td><td>–</td></tr>
+        <tr><td>Admin UI and web companion can't approve once a phone is paired; deny still works</td><td>✔</td><td>–</td><td>–</td></tr>
+        <tr><td>Watch enrollment countersigned by the phone; removing the phone removes the watch</td><td>✔</td><td>–</td><td>–</td></tr>
+        <tr><td>Apps build (CI)</td><td>–</td><td>iOS + watchOS ✔</td><td>phone + Wear ✔</td></tr>
+        <tr><td>Running UI</td><td>–</td><td>simulators ✔</td><td>pending a physical device</td></tr>
+        <tr><td>Push gateway: sealed tickets, content-free APNs alert, data-only FCM</td><td>✔ (mocked providers)</td><td>–</td><td>–</td></tr>
+        <tr><td>Admin passkeys: add, sign out, sign in</td><td>✔ (virtual authenticator)</td><td>–</td><td>–</td></tr>
+      </tbody>
+    </table></div>
+    <p class="muted small">Not verified anywhere yet: real Face ID or fingerprint prompts, real APNs and FCM delivery, enrollment over WatchConnectivity and the Wear Data Layer, and the document scanners. All of these need physical devices and developer accounts.</p>
+  </section>
+
+  <section id="ship">
+    <h2>What you'll need to ship</h2>
+    <div class="status-grid">
+      <div class="card"><h3>Apple</h3><ul>
+        <li>Apple Developer Program membership; a team ID set as <code>DEVELOPMENT_TEAM</code> in <code>apps/apple/project.yml</code></li>
+        <li>App IDs <code>dev.satchel.ios</code> (+ <code>.share</code>, <code>.watchkitapp</code>, <code>.watchkitapp.widgets</code>), app group <code>group.dev.satchel</code>, keychain group <code>dev.satchel.shared</code>, Push Notifications capability</li>
+        <li>An APNs auth key (.p8) for the push gateway</li>
+        <li>A demo node and pairing instructions for App Review</li>
+      </ul></div>
+      <div class="card"><h3>Google</h3><ul>
+        <li>Play Console account; app id <code>dev.satchel.android</code> for both phone and Wear (the Data Layer requires a matching id and signing key)</li>
+        <li>A Firebase project: put the app id, API key, project id and sender id in Gradle properties <code>satchel.firebase.*</code>, and give the service-account JSON to the push gateway</li>
+      </ul></div>
+      <div class="card"><h3>Push gateway (Cloudflare Worker)</h3><ul>
+        <li><code>wrangler deploy</code> from <code>apps/push-gateway</code> on <code>push.&lt;domain&gt;</code></li>
+        <li>Secrets: <code>TICKET_KEY</code> (32 random bytes, base64), <code>APNS_KEY_ID</code>, <code>APNS_TEAM_ID</code>, <code>APNS_PRIVATE_KEY</code>, <code>FCM_SERVICE_ACCOUNT</code></li>
+        <li>Check that Workers can reach APNs over HTTP/2 in your account; if not, move the gateway to the relay VPS (same code, Node runtime)</li>
+      </ul></div>
+      <div class="card"><h3>Next</h3><ul>
+        <li>Test on a physical Android phone and Wear OS watch</li>
+        <li>TestFlight and Play internal-track release workflows (signing secrets)</li>
+        <li>Optional "Find my node with GitHub" plus code confirmation</li>
+        <li>Encrypt delivered values to the device key, so even the node's disk only holds ciphertext</li>
+      </ul></div>
+    </div>
+  </section>
+</main>
+<footer class="wrap foot muted small">Serve locally with <code>report/native/script/serve.sh</code>. iOS screenshots: <code>scripts/shoot-native-apple.sh</code>.</footer>
+<div class="lightbox" id="lightbox" hidden><img alt=""><p></p></div>
+<script src="native.js"></script>
+</body>
+</html>

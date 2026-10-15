@@ -11,3 +11,4 @@ apps/web/.wrangler/
 apps/desktop/helpers/bin/
 supabase/.temp/
 .satchel-dev/
+.android-shots/

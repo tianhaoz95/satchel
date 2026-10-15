@@ -12,10 +12,15 @@ Open-source, agent-neutral vault for personal records (IDs, vehicle papers, insu
 | `packages/relay` | Multi-tenant TLS-passthrough relay (SNI routing), Supabase or file-based node registry, DNS-01 helper |
 | `apps/web` | Landing, docs (`src/docs/*.md`), portal: Vite + React → Cloudflare Pages; Supabase auth; demo mode without env |
 | `apps/desktop` | Electron app (esbuild-bundled ESM main), tray, notifications, `helpers/ocr.swift` (macOS Vision), local-model helper |
+| `apps/apple` | XcodeGen project: iPhone app, share extension, watchOS app + complication; `Packages/SatchelKit` (protocol, Secure Enclave keys, pinned client) |
+| `apps/android` | Gradle: `:core` (protocol, Keystore keys, pinned OkHttp client), `:app` (phone, Compose), `:wear` (Wear OS + complication) |
+| `apps/push-gateway` | Cloudflare Worker: sealed push tickets, content-free APNs/FCM wakes |
+| `spec/companion` | Companion protocol v2 spec, shared test vectors, client signature files |
 | `supabase/migrations` | Portal schema + RLS (only token hashes, never vault data) |
 | `deploy/` | Dockerfiles + compose for NAS node and relay |
 | `scripts/` | `demo-seed.ts` and `shoot-*.ts` (Playwright screenshots for the report) |
 | `report/mvp` | MVP walkthrough site; `report/mvp/script/serve.sh` |
+| `report/native` | Native apps report (screens, signed-approval walkthrough); `report/native/script/serve.sh` |
 | `report/init-setup` | Interactive guide to Cloudflare / Supabase / OAuth / relay setup; `report/init-setup/script/serve.sh` |
 
 ## Commands
@@ -29,6 +34,10 @@ pnpm test                          # node:test, unit + e2e (agent → relay → 
 pnpm test:db                       # Supabase migrations + RLS in PGlite
 pnpm build:web && pnpm test:ui     # Playwright smoke tests (needs: pnpm exec playwright install chromium)
 pnpm --filter @satchel/desktop build
+cd apps/apple/Packages/SatchelKit && swift test           # protocol vectors (Swift)
+cd apps/apple && xcodegen generate && xcodebuild -scheme Satchel -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
+cd apps/android && ./gradlew :core:testDebugUnitTest :app:assembleDebug :wear:assembleDebug
+node scripts/ci-companion-node.ts 7799    # throwaway node; first stdout line is a pairing link (SATCHEL_TEST_PAIR_LINK)
 node scripts/demo-seed.ts          # demo vault in .satchel-dev (owner password: demo)
 node packages/node/src/cli.ts serve --data .satchel-dev/data   # http://127.0.0.1:7710
 ```
@@ -54,7 +63,10 @@ The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, O
 5. **Prefer delivering over revealing.** `deliver_to_user` sends values to the owner's phone; `reveal_field` needs approval and can be picked up once.
 6. **Everything on disk is plain and portable.** Hidden YAML sidecars (`.<file>.satchel.yaml`) move with their files; undo history is `.satchel/journal.jsonl` inside the vault. The SQLite index is a rebuildable cache.
 7. **The portal stores only** the GitHub login (username, email), subdomain, a SHA-256 hash of the node token, and online status. Sign-in is **GitHub only** (no email/magic links, no SMTP); keep it that way unless the user decides otherwise.
-8. **Local first.** NAS shares and cloud-synced folders are just local roots; native cloud APIs come later.
+8. **High-risk decisions need hardware.** Once a phone is paired (policy `deviceSignature: when_paired`), reveals, reorganizations and VAULT.md changes are approved only with a signature from a paired device's Secure Enclave or Keystore key. Denying never needs one. Devices are enrolled only by pairing codes issued from the node; never let the portal or a GitHub login enroll devices.
+9. **Push carries no content.** Native apps are woken through the push gateway with only a `kind`; nodes hold opaque tickets, never APNs/FCM tokens.
+10. **Protocol changes touch three implementations.** Edit `spec/companion/protocol.md`, regenerate vectors (`scripts/gen-companion-vectors.ts`), then rerun the Swift and Kotlin vector tests with `SATCHEL_WRITE_CLIENT_SIGNATURES=1`.
+11. **Local first.** NAS shares and cloud-synced folders are just local roots; native cloud APIs come later.
 
 ## Gotchas found while building
 
@@ -64,4 +76,7 @@ The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, O
 - MCP SDK auth routers are created per origin (localhost vs public host), so their built-in rate limiters are disabled and a shared limiter is used instead.
 - Let's Encrypt DNS-01, real Supabase/Cloudflare deploys and Web Push were never verified end to end. Treat them as untested.
 - The relay serves its control port (7443) and HTTPS API on the same hostname, `relay.<domain>`; nodes derive the API URL from the control host.
+- Simulator builds are ad-hoc signed (`CODE_SIGN_IDENTITY: "-"`); fully unsigned builds can't use the Keychain (error -34018). Simulators keep Keychain items across reinstalls: run `xcrun simctl keychain <udid> reset` for a clean pairing.
+- Android: AGP 9.2 needs Gradle ≥ 9.4.1, and Compose BOM 2026.09 needs compileSdk 37. No JVM toolchain is pinned; builds use the running JDK. This Mac is low on internal disk, so Android is tested on a physical device, not emulators.
+- WebAuthn relying parties must be hostnames: admin passkeys don't work when the page is opened by IP (`127.0.0.1`), so use `localhost` or the node's domain.
 - The `satchel.dev` domain is a placeholder. Deploy workflows skip until the Cloudflare/Supabase secrets and variables exist (see `report/mvp/site/index.html#cicd`).

@@ -172,6 +172,10 @@ const ROWS = [
   ["OAuth client secret", "secret", "GitHub OAuth app", "gh", ["sba"], "Supabase → Providers → GitHub only"],
   ["Server IP", "public", "VPS provider", "vps", ["dns", "ghs"], "A records, RELAY_HOST"],
   ["Deploy SSH key", "secret", "ssh-keygen", "vps", ["ghs"], "secret RELAY_SSH_KEY (+ authorized_keys)"],
+  ["APNs key (.p8)", "secret", "Apple Developer → Keys", "apple", [], "push gateway APNS_PRIVATE_KEY (+ key id, team id)"],
+  ["FCM service account", "secret", "Firebase → Service accounts", "firebase", [], "push gateway FCM_SERVICE_ACCOUNT"],
+  ["Firebase app config", "public", "Firebase → Project settings", "firebase", [], "Gradle properties satchel.firebase.*"],
+  ["Ticket key", "secret", "openssl rand -base64 32", "gateway", [], "push gateway TICKET_KEY only"],
 ];
 
 $("#valueTable").innerHTML = ROWS.map(
