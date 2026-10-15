@@ -38,6 +38,9 @@ export type Approval = {
   created_at: number;
   decided_at: number | null;
   decided_by: string | null;
+  /** Device whose hardware key signed the decision, and the signature (null for unsigned decisions). */
+  decision_device: string | null;
+  decision_signature: string | null;
   /** Outcome of the approved action (executed on approval for side effects, on pickup for reveals). */
   result: unknown;
 };
@@ -62,6 +65,23 @@ export type Delivery = {
   note: string;
   seen: number;
 };
+
+export type Device = {
+  id: string;
+  name: string;
+  created_at: number;
+  last_seen: number | null;
+  /** SPKI DER base64url of the device's P-256 key; null for the PWA. */
+  public_key: string | null;
+  platform: "web" | "ios" | "android" | "watchos" | "wearos";
+  kind: "phone" | "watch";
+  parent_id: string | null;
+  /** The client reported a hardware-backed key (Secure Enclave / StrongBox / TEE). */
+  hardware: boolean;
+  push_ticket: string | null;
+};
+const DEVICE_COLS = "id, name, created_at, last_seen, public_key, platform, kind, parent_id, hardware, push_ticket";
+const toDevice = (r: any): Device => ({ ...r, hardware: !!r.hardware });
 
 export const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 export const newToken = (prefix: string) => `${prefix}_${randomBytes(24).toString("base64url")}`;
@@ -109,6 +129,27 @@ export class Store {
     this.db = new DatabaseSync(path.join(dataDir, "satchel.sqlite"));
     this.db.exec("pragma journal_mode = wal;");
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /** Additive migrations for databases created by older versions. */
+  private migrate() {
+    const cols = new Set((this.db.prepare("pragma table_info(devices)").all() as Array<{ name: string }>).map((c) => c.name));
+    const add: Array<[string, string]> = [
+      ["public_key", "text"],
+      ["platform", "text not null default 'web'"],
+      ["kind", "text not null default 'phone'"],
+      ["parent_id", "text"],
+      ["hardware", "integer not null default 0"],
+      ["push_ticket", "text"],
+    ];
+    for (const [name, type] of add) if (!cols.has(name)) this.db.exec(`alter table devices add column ${name} ${type}`);
+    const acols = new Set((this.db.prepare("pragma table_info(approvals)").all() as Array<{ name: string }>).map((c) => c.name));
+    if (!acols.has("decision_device")) this.db.exec("alter table approvals add column decision_device text");
+    if (!acols.has("decision_signature")) this.db.exec("alter table approvals add column decision_signature text");
+    this.db.exec(`create table if not exists passkeys (
+      id text primary key, public_key text not null, counter integer not null, transports text not null,
+      name text not null, created_at integer not null, last_used integer)`);
   }
 
   close() {
@@ -213,8 +254,20 @@ export class Store {
   }
 
   // ---- approvals
-  createApproval(a: Omit<Approval, "id" | "status" | "created_at" | "decided_at" | "decided_by" | "result">): Approval {
-    const row: Approval = { ...a, id: randomUUID(), status: "pending", created_at: Date.now(), decided_at: null, decided_by: null, result: null };
+  createApproval(
+    a: Omit<Approval, "id" | "status" | "created_at" | "decided_at" | "decided_by" | "result" | "decision_device" | "decision_signature">,
+  ): Approval {
+    const row: Approval = {
+      ...a,
+      id: randomUUID(),
+      status: "pending",
+      created_at: Date.now(),
+      decided_at: null,
+      decided_by: null,
+      decision_device: null,
+      decision_signature: null,
+      result: null,
+    };
     this.db
       .prepare("insert into approvals(id, client_id, client_name, action, target, detail, reason, status, created_at) values(?,?,?,?,?,?,?,?,?)")
       .run(row.id, row.client_id, row.client_name, row.action, row.target, JSON.stringify(row.detail), row.reason, row.status, row.created_at);
@@ -230,8 +283,12 @@ export class Store {
       : this.db.prepare("select * from approvals order by created_at desc limit ?").all(limit);
     return (rows as any[]).map((r) => this.rowToApproval(r));
   }
-  decideApproval(id: string, status: "approved" | "denied", by: string): Approval | undefined {
-    this.db.prepare("update approvals set status = ?, decided_at = ?, decided_by = ? where id = ? and status = 'pending'").run(status, Date.now(), by, id);
+  decideApproval(id: string, status: "approved" | "denied", by: string, signed?: { deviceId: string; signature: string }): Approval | undefined {
+    this.db
+      .prepare(
+        "update approvals set status = ?, decided_at = ?, decided_by = ?, decision_device = ?, decision_signature = ? where id = ? and status = 'pending'",
+      )
+      .run(status, Date.now(), by, signed?.deviceId ?? null, signed?.signature ?? null, id);
     return this.getApproval(id);
   }
   /** Approvals are short-lived: an unanswered request expires after a day. */
@@ -306,23 +363,74 @@ export class Store {
     this.db.prepare("delete from pairing where code = ?").run(code.toUpperCase());
     return !!row;
   }
-  addDevice(name: string): { id: string; token: string } {
+  /**
+   * Registers a companion device. Native apps (protocol v2) bring a P-256 public key whose private
+   * half lives in hardware; the PWA (v1) has none and can never sign high-risk decisions.
+   */
+  addDevice(name: string, opts: Partial<Pick<Device, "public_key" | "platform" | "kind" | "parent_id" | "hardware">> = {}): { id: string; token: string } {
     const id = randomUUID();
     const token = newToken("satchel_dev");
-    this.db.prepare("insert into devices(id, name, token_hash, created_at) values(?,?,?,?)").run(id, name, sha256(token), Date.now());
+    this.db
+      .prepare("insert into devices(id, name, token_hash, created_at, public_key, platform, kind, parent_id, hardware) values(?,?,?,?,?,?,?,?,?)")
+      .run(
+        id,
+        name,
+        sha256(token),
+        Date.now(),
+        opts.public_key ?? null,
+        opts.platform ?? "web",
+        opts.kind ?? "phone",
+        opts.parent_id ?? null,
+        opts.hardware ? 1 : 0,
+      );
     return { id, token };
   }
-  findDevice(token: string): { id: string; name: string } | undefined {
-    const row = this.db.prepare("select id, name from devices where token_hash = ?").get(sha256(token)) as any;
+  findDevice(token: string): Device | undefined {
+    const row = this.db.prepare(`select ${DEVICE_COLS} from devices where token_hash = ?`).get(sha256(token)) as any;
     if (row) this.db.prepare("update devices set last_seen = ? where id = ?").run(Date.now(), row.id);
-    return row;
+    return row ? toDevice(row) : undefined;
   }
-  listDevices(): Array<{ id: string; name: string; created_at: number; last_seen: number | null }> {
-    return this.db.prepare("select id, name, created_at, last_seen from devices order by created_at desc").all() as any[];
+  getDevice(id: string): Device | undefined {
+    const row = this.db.prepare(`select ${DEVICE_COLS} from devices where id = ?`).get(id) as any;
+    return row ? toDevice(row) : undefined;
   }
+  listDevices(): Device[] {
+    return (this.db.prepare(`select ${DEVICE_COLS} from devices order by created_at desc`).all() as any[]).map(toDevice);
+  }
+  /** True once any device that can sign (has a key) is paired. */
+  hasSigningDevice(): boolean {
+    return !!this.db.prepare("select 1 from devices where public_key is not null limit 1").get();
+  }
+  setPushTicket(id: string, ticket: string | null) {
+    this.db.prepare("update devices set push_ticket = ? where id = ?").run(ticket, id);
+  }
+  listPushTickets(): Array<{ id: string; ticket: string }> {
+    return this.db.prepare("select id, push_ticket as ticket from devices where push_ticket is not null").all() as any[];
+  }
+  /** Removing a phone also removes the watches it enrolled. */
   removeDevice(id: string) {
+    for (const child of this.db.prepare("select id from devices where parent_id = ?").all(id) as Array<{ id: string }>) this.removeDevice(child.id);
     this.db.prepare("delete from devices where id = ?").run(id);
     this.db.prepare("delete from push_subs where device_id = ?").run(id);
+  }
+
+  // ---- passkeys for the node admin UI (WebAuthn)
+  addPasskey(p: { id: string; public_key: string; counter: number; transports: string[]; name: string }) {
+    this.db
+      .prepare("insert into passkeys(id, public_key, counter, transports, name, created_at) values(?,?,?,?,?,?)")
+      .run(p.id, p.public_key, p.counter, JSON.stringify(p.transports), p.name, Date.now());
+  }
+  listPasskeys(): Array<{ id: string; public_key: string; counter: number; transports: string[]; name: string; created_at: number; last_used: number | null }> {
+    return (this.db.prepare("select * from passkeys order by created_at").all() as any[]).map((r) => ({ ...r, transports: JSON.parse(r.transports) }));
+  }
+  getPasskey(id: string) {
+    return this.listPasskeys().find((p) => p.id === id);
+  }
+  updatePasskeyCounter(id: string, counter: number) {
+    this.db.prepare("update passkeys set counter = ?, last_used = ? where id = ?").run(counter, Date.now(), id);
+  }
+  removePasskey(id: string) {
+    this.db.prepare("delete from passkeys where id = ?").run(id);
   }
   savePushSub(deviceId: string, sub: { endpoint: string }) {
     this.db

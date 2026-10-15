@@ -1,0 +1,9 @@
+name = "satchel-push-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+routes = [{ pattern = "push.satchel.dev", custom_domain = true }]
+
+[vars]
+APNS_TOPIC = "dev.satchel.ios"
+
+# Secrets (wrangler secret put …): TICKET_KEY, APNS_KEY_ID, APNS_TEAM_ID, APNS_PRIVATE_KEY, FCM_SERVICE_ACCOUNT

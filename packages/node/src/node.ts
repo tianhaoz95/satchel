@@ -1,10 +1,36 @@
 import { watch, type FSWatcher } from "node:fs";
 import path from "node:path";
 import webpush from "web-push";
-import { maskMetadata, sensitiveKeys, Store, Vault, type Approval, type FileEntry, type Grant, type Metadata } from "@satchel/core";
+import {
+  approvalDetailHash,
+  approvalMessage,
+  HIGH_RISK_ACTIONS,
+  maskMetadata,
+  SIGNATURE_MAX_SKEW_MS,
+  sensitiveKeys,
+  Store,
+  Vault,
+  verifySignature,
+  type Approval,
+  type Device,
+  type FileEntry,
+  type Grant,
+  type Metadata,
+} from "@satchel/core";
 import { loadConfig, saveConfig, type NodeConfig } from "./config.ts";
 
 export type Actor = { clientId: string; clientName: string; grant: Grant };
+
+/** A decision made on a native app: who signed, when, and the DER signature (base64url). */
+export type SignedDecision = { device: Device; signedAt: number; signature: string };
+
+export class DecisionError extends Error {
+  readonly code: "needs_signature" | "bad_signature" | "stale_signature" | "not_found" | "already_decided";
+  constructor(code: DecisionError["code"], message: string) {
+    super(message);
+    this.code = code;
+  }
+}
 
 /**
  * The running node: config + vault + store, plus the approval executor and push notifications.
@@ -157,13 +183,56 @@ export class SatchelNode {
   requestApproval(actor: Actor, action: string, target: string, detail: Record<string, unknown>, reason: string): Approval {
     const a = this.store.createApproval({ client_id: actor.clientId, client_name: actor.clientName, action, target, detail, reason });
     this.emit("approval", a);
-    void this.push({ title: "Approval needed", body: `${actor.clientName} wants to ${describeAction(action)}`, tag: a.id, url: "/app/#approvals" });
+    void this.push({ title: "Approval needed", body: `${actor.clientName} wants to ${describeAction(action)}`, tag: a.id, url: "/app/#approvals" }, "approval");
     return a;
   }
 
-  /** Called from the admin UI or the phone. Side-effecting actions run immediately on approval. */
-  async decide(id: string, decision: "approved" | "denied", by: string): Promise<Approval | undefined> {
-    const a = this.store.decideApproval(id, decision, by);
+  /** Whether a high-risk approval can only be decided with a hardware-signed decision right now. */
+  requiresSignature(action: string): boolean {
+    if (!HIGH_RISK_ACTIONS.has(action)) return false;
+    const mode = this.config.policy.approvals.deviceSignature ?? "when_paired";
+    if (mode === "never") return false;
+    if (mode === "always") return true;
+    return this.store.hasSigningDevice();
+  }
+
+  /** The fields a native app shows and signs for an approval. */
+  signingInfo(a: Approval) {
+    return { node_id: this.config.nodeId, detail_hash: approvalDetailHash(a.detail), requires_signature: this.requiresSignature(a.action) };
+  }
+
+  /**
+   * Called from the admin UI, the PWA or a native app. High-risk actions need a valid signature from
+   * a paired device's hardware key (per policy). Side-effecting actions run immediately on approval.
+   */
+  async decide(id: string, decision: "approved" | "denied", by: string, signed?: SignedDecision): Promise<Approval | undefined> {
+    const pending = this.store.getApproval(id);
+    if (!pending) throw new DecisionError("not_found", "Unknown approval");
+    if (pending.status !== "pending") throw new DecisionError("already_decided", `Already ${pending.status}`);
+    if (signed) {
+      if (!signed.device.public_key) throw new DecisionError("bad_signature", "This device has no signing key");
+      if (Math.abs(Date.now() - signed.signedAt) > SIGNATURE_MAX_SKEW_MS)
+        throw new DecisionError("stale_signature", "Signature timestamp is too far from the node's clock");
+      const message = approvalMessage({
+        nodeId: this.config.nodeId,
+        approvalId: pending.id,
+        decision,
+        action: pending.action,
+        target: pending.target,
+        detailHash: approvalDetailHash(pending.detail),
+        signedAt: signed.signedAt,
+      });
+      if (!verifySignature(signed.device.public_key, message, signed.signature)) throw new DecisionError("bad_signature", "Signature does not verify");
+    } else if (decision === "approved" && this.requiresSignature(pending.action)) {
+      // Denying is always allowed: it can only reduce what an agent gets.
+      throw new DecisionError("needs_signature", "Approve this on your phone: high-risk actions need a decision signed by a paired device.");
+    }
+    const a = this.store.decideApproval(
+      id,
+      decision,
+      signed ? `${signed.device.name} (signed)` : by,
+      signed ? { deviceId: signed.device.id, signature: signed.signature } : undefined,
+    );
     if (a?.status !== "approved") {
       this.emit("approval", a);
       return a;
@@ -196,12 +265,17 @@ export class SatchelNode {
   deliver(actor: Actor, title: string, value: string, note: string) {
     const d = this.store.addDelivery({ client_name: actor.clientName, title, value, note });
     this.emit("delivery", { id: d.id });
-    void this.push({ title: "Satchel", body: `${actor.clientName} sent you ${title}`, tag: d.id, url: "/app/#inbox" });
+    void this.push({ title: "Satchel", body: `${actor.clientName} sent you ${title}`, tag: d.id, url: "/app/#inbox" }, "delivery");
     return d;
   }
 
-  /** Web Push payloads are end-to-end encrypted to the device; they still never carry secret values. */
-  async push(payload: { title: string; body: string; tag: string; url: string }) {
+  /**
+   * Notifies the owner's devices. Web Push (PWA) payloads are end-to-end encrypted to the browser.
+   * Native apps are woken through the push gateway with no content at all, only a kind ("approval",
+   * "delivery"): the app then fetches details from this node over its pinned connection.
+   */
+  async push(payload: { title: string; body: string; tag: string; url: string }, kind: "approval" | "delivery" = "approval") {
+    void this.wakeNative(kind);
     const v = this.config.vapid;
     if (!v) return;
     for (const { endpoint, sub } of this.store.listPushSubs()) {
@@ -209,6 +283,24 @@ export class SatchelNode {
         await webpush.sendNotification(sub, JSON.stringify(payload), { vapidDetails: v, TTL: 3600 });
       } catch (err: any) {
         if (err.statusCode === 404 || err.statusCode === 410) this.store.removePushSub(endpoint);
+      }
+    }
+  }
+
+  private async wakeNative(kind: string) {
+    const gateway = this.config.push?.gateway;
+    if (!gateway) return;
+    for (const { id, ticket } of this.store.listPushTickets()) {
+      try {
+        const res = await fetch(`${gateway.replace(/\/$/, "")}/v1/wake`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ticket, kind }),
+          signal: AbortSignal.timeout(10_000),
+        });
+        if (res.status === 410) this.store.setPushTicket(id, null);
+      } catch {
+        // Push is best effort; the app also refreshes when opened.
       }
     }
   }

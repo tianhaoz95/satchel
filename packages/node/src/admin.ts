@@ -1,10 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import QRCode from "qrcode";
-import { DEFAULT_POLICY, sensitiveKeys, VaultError, type Grant } from "@satchel/core";
+import { pairingLink, DEFAULT_POLICY, type Grant, keyFingerprint, sensitiveKeys, VaultError } from "@satchel/core";
 import { checkPassword } from "./config.ts";
 import type { SatchelNode } from "./node.ts";
 import { tunnelStatus } from "./tunnel.ts";
+import { tlsPin } from "./certs.ts";
+import { sendDecisionError } from "./companion.ts";
 
 const sessions = new Map<string, number>();
 const oneTimeLogins = new Map<string, number>();
@@ -204,12 +206,19 @@ export function adminRouter(node: SatchelNode): Router {
   // ---- approvals
   r.get(
     "/approvals",
-    wrap((req) => node.store.listApprovals(req.query.status ? (String(req.query.status) as any) : undefined)),
+    wrap((req) =>
+      node.store
+        .listApprovals(req.query.status ? (String(req.query.status) as any) : undefined)
+        .map((a) => ({ ...a, requires_signature: a.status === "pending" && node.requiresSignature(a.action) })),
+    ),
   );
-  r.post(
-    "/approvals/:id",
-    wrap(async (req) => node.decide(String(req.params.id), req.body.decision === "approved" ? "approved" : "denied", "owner (desktop)")),
-  );
+  r.post("/approvals/:id", async (req, res) => {
+    try {
+      res.json(await node.decide(String(req.params.id), req.body?.decision === "approved" ? "approved" : "denied", "owner (admin UI)"));
+    } catch (err) {
+      sendDecisionError(res, err);
+    }
+  });
 
   // ---- journal, audit, conventions, policy
   r.get(
@@ -242,6 +251,8 @@ export function adminRouter(node: SatchelNode): Router {
       const p = req.body?.policy;
       if (!p || !Array.isArray(p.sensitivePatterns)) throw new VaultError("Invalid policy");
       for (const pat of p.sensitivePatterns) new RegExp(pat);
+      if (p.approvals?.deviceSignature && !["when_paired", "always", "never"].includes(p.approvals.deviceSignature))
+        throw new VaultError("Invalid deviceSignature");
       node.saveConfig({ policy: { sensitivePatterns: p.sensitivePatterns.map(String), approvals: { ...node.config.policy.approvals, ...p.approvals } } });
       return node.config.policy;
     }),
@@ -276,7 +287,16 @@ export function adminRouter(node: SatchelNode): Router {
   // ---- companion devices
   r.get(
     "/devices",
-    wrap(() => node.store.listDevices()),
+    wrap(() =>
+      node.store
+        .listDevices()
+        .map(({ push_ticket, public_key, ...d }) => ({
+          ...d,
+          signing: !!public_key,
+          push: !!push_ticket,
+          key_fingerprint: public_key ? keyFingerprint(public_key) : null,
+        })),
+    ),
   );
   r.delete(
     "/devices/:id",
@@ -287,8 +307,11 @@ export function adminRouter(node: SatchelNode): Router {
     wrap(async (req) => {
       const code = node.store.createPairingCode();
       const base = node.config.publicHost ? `https://${node.config.publicHost}` : `${req.protocol}://${req.get("host")}`;
-      const url = `${base}/app/#pair=${code}`;
-      return { code, url, qr: await QRCode.toString(url, { type: "svg", margin: 1 }) };
+      const pin = tlsPin(node.dataDir);
+      // Native apps scan the satchel:// link (it carries the TLS pin); the PWA link is a read-only fallback.
+      const link = pairingLink({ url: base, code, nodeId: node.config.nodeId, nodeName: node.config.name, pin: node.config.publicHost ? pin : null });
+      const pwa = `${base}/app/#pair=${code}`;
+      return { code, link, pwa, pin, url: pwa, qr: await QRCode.toString(link, { type: "svg", margin: 1 }) };
     }),
   );
   r.get(

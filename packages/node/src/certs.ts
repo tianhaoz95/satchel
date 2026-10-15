@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
-import { X509Certificate } from "node:crypto";
+import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, X509Certificate } from "node:crypto";
 import path from "node:path";
 import { generate } from "selfsigned";
 import type { SatchelNode } from "./node.ts";
@@ -27,18 +27,24 @@ export async function ensureCertificate(node: SatchelNode, opts: { force?: boole
     if (valid && x.checkHost(host)) return { key: readFileSync(keyFile, "utf8"), cert, issuer: x.issuer === x.subject ? "self-signed" : "acme" };
   }
   await mkdir(dir, { recursive: true, mode: 0o700 });
+  // The key is generated once and reused across renewals: native apps pin its public key.
+  const key = existsSync(keyFile)
+    ? readFileSync(keyFile, "utf8")
+    : generateKeyPairSync("ec", { namedCurve: "prime256v1" }).privateKey.export({ format: "pem", type: "pkcs8" }).toString();
   let pair: CertPair | null = null;
   const api = node.config.relay && relayApiBase(node.config.relay.control, node.config.relay.api);
   if (api && node.config.publicHost && process.env.SATCHEL_ACME !== "off") {
     try {
-      pair = await acmeCertificate(host, api, node.config.relay!.token, path.join(dir, "account.pem"));
+      pair = await acmeCertificate(host, api, node.config.relay!.token, path.join(dir, "account.pem"), key);
     } catch (err: any) {
       console.warn(`[satchel] ACME certificate failed (${err.message}); using a self-signed certificate`);
     }
   }
   if (!pair) {
+    const publicKey = createPublicKey(key).export({ format: "pem", type: "spki" }).toString();
     const pems = await generate([{ name: "commonName", value: host }], {
-      keySize: 2048,
+      keyPair: { privateKey: key, publicKey },
+      keyType: createPrivateKey(key).asymmetricKeyType === "ec" ? "ec" : "rsa",
       algorithm: "sha256",
       extensions: [
         {
@@ -67,7 +73,7 @@ function relayApiBase(control: string, explicit?: string): string | null {
   return `https://${host}`;
 }
 
-async function acmeCertificate(host: string, api: string, nodeToken: string, accountKeyFile: string): Promise<CertPair> {
+async function acmeCertificate(host: string, api: string, nodeToken: string, accountKeyFile: string, keyPem: string): Promise<CertPair> {
   const acme = (await import("acme-client")).default;
   let accountKey: Buffer;
   if (existsSync(accountKeyFile)) accountKey = readFileSync(accountKeyFile);
@@ -79,7 +85,7 @@ async function acmeCertificate(host: string, api: string, nodeToken: string, acc
     directoryUrl: process.env.SATCHEL_ACME_STAGING ? acme.directory.letsencrypt.staging : acme.directory.letsencrypt.production,
     accountKey,
   });
-  const [key, csr] = await acme.crypto.createCsr({ altNames: [host] });
+  const [key, csr] = await acme.crypto.createCsr({ altNames: [host] }, keyPem);
   const call = async (method: string, value: string) => {
     const res = await fetch(`${api}/v1/acme/txt`, {
       method,
@@ -99,4 +105,15 @@ async function acmeCertificate(host: string, api: string, nodeToken: string, acc
     challengeRemoveFn: async (_authz, _challenge, keyAuthorization) => call("DELETE", keyAuthorization),
   });
   return { key: key.toString(), cert, issuer: "acme" };
+}
+
+/**
+ * Public-key pin for native apps: base64 SHA-256 of the TLS key's SubjectPublicKeyInfo (the same
+ * value as OkHttp's `sha256/…` pins). Null when the node has no TLS key yet (local-only).
+ */
+export function tlsPin(dataDir: string): string | null {
+  const keyFile = path.join(dataDir, "tls", "key.pem");
+  if (!existsSync(keyFile)) return null;
+  const spki = createPublicKey(createPrivateKey(readFileSync(keyFile, "utf8"))).export({ format: "der", type: "spki" });
+  return createHash("sha256").update(spki).digest("base64");
 }

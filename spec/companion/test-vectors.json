@@ -1,0 +1,69 @@
+{
+  "description": "Satchel companion protocol v2 test vectors. The key below is TEST-ONLY and must never be used for anything else.",
+  "key": {
+    "spki_der_b64url": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFLSEqT22mZkDOCNqtjjwQop-H14nROk20giFBfwUzuOWw",
+    "raw_x963_b64url": "BHQ8JDgRad-N9oAwj_XdXFgnDURm8T6F0dJnOp5uhshS0hKk9tpmZAzgjarY48EKKfh9eJ0TpNtIIhQX8FM7jls",
+    "pkcs8_der_b64url": "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgOK3VXs9h5bOHBq-k4cYxL8HYLmwPjRnqFCBnZ_-sx72hRANCAAR0PCQ4EWnfjfaAMI_13VxYJw1EZvE-hdHSZzqebobIUtISpPbaZmQM4I2q2OPBCin4fXidE6TbSCIUF_BTO45b",
+    "jwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "dDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFI",
+      "y": "0hKk9tpmZAzgjarY48EKKfh9eJ0TpNtIIhQX8FM7jls",
+      "d": "OK3VXs9h5bOHBq-k4cYxL8HYLmwPjRnqFCBnZ_-sx70"
+    },
+    "pin_sha256_b64": "GKRhN4xi9X0YiS4SOhzm8o0A5YmwToYTPaP2oEwxKS0="
+  },
+  "pairing": {
+    "input": {
+      "nodeId": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+      "code": "7F3A9C21B0",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFLSEqT22mZkDOCNqtjjwQop-H14nROk20giFBfwUzuOWw"
+    },
+    "message": "satchel-pair-v1\n6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5\n7F3A9C21B0\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFLSEqT22mZkDOCNqtjjwQop-H14nROk20giFBfwUzuOWw",
+    "node_signature": "MEQCIHjwIHOlJPI1dCu547To7-Kj-zml05386dJnd8c5bZkFAiBUJKrIJfA_P1K7tR3xS8NMhWxj9B767WawwOfn4WZ2ow"
+  },
+  "enroll": {
+    "input": {
+      "nodeId": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+      "parentId": "0b6f8f9e-1111-4222-8333-944455556666",
+      "childPublicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFLSEqT22mZkDOCNqtjjwQop-H14nROk20giFBfwUzuOWw",
+      "signedAt": 1765000000000
+    },
+    "message": "satchel-enroll-v1\n6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5\n0b6f8f9e-1111-4222-8333-944455556666\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEdDwkOBFp3432gDCP9d1cWCcNRGbxPoXR0mc6nm6GyFLSEqT22mZkDOCNqtjjwQop-H14nROk20giFBfwUzuOWw\n1765000000000",
+    "node_signature": "MEYCIQCj7nhTIg-cYdK6kt1U4AlzyEOsokV68XlHNvClAsm9IwIhAPzedOVnoB7oiLX0xNyC9Xco1tuLHAPK9s_Nk0yOANEU"
+  },
+  "approval": {
+    "detail": {
+      "path": "home/People/Alex/ID/2019-03 Passport.pdf",
+      "key": "passport_number",
+      "preview": "567••••••",
+      "nested": {
+        "b": 2,
+        "a": [1, "x"]
+      }
+    },
+    "detail_hash": "IVRfMfgkinXJbm5gMeUFiJEbcw7s6-7-UY0uSQaegww",
+    "input": {
+      "nodeId": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+      "approvalId": "3d2c1b0a-9f8e-4d7c-8b6a-594837261504",
+      "decision": "approved",
+      "action": "reveal_field",
+      "target": "home/People/Alex/ID/2019-03 Passport.pdf#passport_number",
+      "detailHash": "IVRfMfgkinXJbm5gMeUFiJEbcw7s6-7-UY0uSQaegww",
+      "signedAt": 1765000123456
+    },
+    "message": "satchel-approval-v1\n6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5\n3d2c1b0a-9f8e-4d7c-8b6a-594837261504\napproved\nreveal_field\nhome/People/Alex/ID/2019-03 Passport.pdf#passport_number\nIVRfMfgkinXJbm5gMeUFiJEbcw7s6-7-UY0uSQaegww\n1765000123456",
+    "node_signature": "MEQCIE2NHbrCaD5BgPSyOo9_LLefBRYdUG5uYowKmY-pjhk2AiAmj2qn047HTTWdFxaWWd5YWRTPP3IsAnNvYQgQ10bGNg"
+  },
+  "pairing_link": {
+    "input": {
+      "url": "https://alex.satchel.dev",
+      "code": "7F3A9C21B0",
+      "nodeId": "6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5",
+      "nodeName": "Alex's NAS",
+      "pin": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="
+    },
+    "link": "satchel://pair?v=2&url=https%3A%2F%2Falex.satchel.dev&code=7F3A9C21B0&node=6f1c2d3e-4b5a-4c6d-8e7f-90a1b2c3d4e5&name=Alex%27s+NAS&pin=47DEQpj8HBSa%2B%2FTImW%2B5JCeuQeRkm5NMpJWZG3hSuFU%3D"
+  },
+  "client_signatures": {}
+}

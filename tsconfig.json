@@ -11,5 +11,13 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "supabase/test/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "supabase/test/**/*.ts",
+    "tests/**/*.ts",
+    "scripts/**/*.ts",
+    "apps/push-gateway/src/**/*.ts",
+    "apps/push-gateway/test/**/*.ts"
+  ]
 }

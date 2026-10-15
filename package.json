@@ -10,7 +10,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @satchel/web exec tsc --noEmit -p .",
-    "test": "node --test --test-reporter=spec \"packages/*/test/*.test.ts\"",
+    "test": "node --test --test-reporter=spec \"packages/*/test/*.test.ts\" \"apps/push-gateway/test/*.test.ts\"",
     "test:db": "node --test --test-reporter=spec supabase/test/*.test.ts",
     "test:ui": "node --test --test-reporter=spec --test-concurrency=1 tests/ui/*.test.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:db",

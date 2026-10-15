@@ -1,0 +1,10 @@
+{
+  "name": "@satchel/push-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Content-free push relay for Satchel's native apps (Cloudflare Worker)",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}

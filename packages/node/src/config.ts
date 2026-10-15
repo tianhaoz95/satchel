@@ -33,6 +33,8 @@ export type NodeConfig = {
   /** Folder (vault path) where phone captures land. */
   inbox: string | null;
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
+  /** Push gateway that wakes native apps (content-free). Self-hosters can run their own or set null. */
+  push: { gateway: string | null };
   helpers: { ocr: boolean; llm: { url: string; model: string } | null };
 };
 
@@ -57,6 +59,7 @@ export function loadConfig(dataDir: string): NodeConfig {
     publicHost: null,
     inbox: null,
     vapid: null,
+    push: { gateway: process.env.SATCHEL_PUSH_GATEWAY ?? "https://push.satchel.dev" },
     helpers: { ocr: process.platform === "darwin", llm: null },
   };
   if (!existsSync(file)) return base;

@@ -55,6 +55,13 @@ export type SecurityPolicy = {
     organize: "always" | "never";
     conventions: "always" | "never";
     metadata: "always" | "never";
+    /**
+     * Who may decide high-risk approvals (reveal, reorganize, VAULT.md):
+     * - when_paired: only a native app's hardware-signed decision once one is paired (default)
+     * - always: always require a signed decision (nothing can approve until a phone is paired)
+     * - never: the admin UI and the PWA may decide too
+     */
+    deviceSignature: "when_paired" | "always" | "never";
   };
 };
 
@@ -75,5 +82,5 @@ export const DEFAULT_POLICY: SecurityPolicy = {
     "date_of_birth",
     "^dob$",
   ],
-  approvals: { reveal: "always", organize: "always", conventions: "always", metadata: "never" },
+  approvals: { reveal: "always", organize: "always", conventions: "always", metadata: "never", deviceSignature: "when_paired" },
 };
