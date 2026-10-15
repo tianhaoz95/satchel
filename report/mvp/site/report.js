@@ -191,7 +191,8 @@ function show(i) {
   [...$("#steps").children].forEach((li, j) => {
     li.classList.toggle("on", j === step);
   });
-  $("#steps").children[step].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  $("#stepCount").textContent = `${flowName} · step ${step + 1} of ${steps.length}`;
+  $("#stepText").innerHTML = s.text;
   cancelAnimationFrame(anim);
   fdot.setAttribute("cx", -20);
   if (s.e) {

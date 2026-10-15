@@ -94,15 +94,19 @@
     <p class="muted">Pick a flow and press play. Each step lights up the components involved, and a packet travels the path it takes.</p>
     <div class="flow-tabs" id="flowTabs"></div>
     <div class="flow-card">
-      <svg id="flowSvg" viewBox="0 0 980 470"></svg>
-      <div class="flow-side">
-        <ol id="steps" class="steps"></ol>
+      <div class="flow-scroll"><svg id="flowSvg" viewBox="0 0 980 470"></svg></div>
+      <div class="now">
+        <div class="now-text">
+          <p class="eyebrow" id="stepCount"></p>
+          <p id="stepText" aria-live="polite"></p>
+        </div>
         <div class="controls">
-          <button id="prev" aria-label="Previous step">←</button>
-          <button id="play" class="primary">Play</button>
-          <button id="next" aria-label="Next step">→</button>
+          <button type="button" id="prev" aria-label="Previous step">←</button>
+          <button type="button" id="play" class="primary">Play</button>
+          <button type="button" id="next" aria-label="Next step">→</button>
         </div>
       </div>
+      <ol id="steps" class="steps"></ol>
     </div>
   </section>
 
