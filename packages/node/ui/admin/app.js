@@ -110,7 +110,12 @@ async function route() {
 
 async function overview(ov) {
   const t = ov.tunnel;
-  const tunnel = t.state === "online" ? `<span class="dot on"></span>Online` : t.state === "off" ? `<span class="dot"></span>Local only` : `<span class="dot err"></span>${esc(t.state)}${t.error ? `: ${esc(t.error)}` : ""}`;
+  const tunnel =
+    t.state === "online"
+      ? `<span class="dot on"></span>Online`
+      : t.state === "off"
+        ? `<span class="dot"></span>Local only`
+        : `<span class="dot err"></span>${esc(t.state)}${t.error ? `: ${esc(t.error)}` : ""}`;
   shell(
     "overview",
     "Overview",
@@ -128,7 +133,7 @@ async function overview(ov) {
       <div class="card"><h3 style="margin-top:0">Reachability</h3>
         <div class="list">
           <div><span>Relay tunnel</span><span>${tunnel}</span></div>
-          <div><span>Public MCP URL</span><code>${ov.public_url ? esc(ov.public_url) + "/mcp" : "not connected"}</code></div>
+          <div><span>Public MCP URL</span><code>${ov.public_url ? `${esc(ov.public_url)}/mcp` : "not connected"}</code></div>
           <div><span>Local MCP URL</span><code>${esc(ov.local_url)}/mcp</code></div>
           <div><span>Last agent activity</span><span>${ago(ov.last_agent_activity)}</span></div>
           <div><span>Paired phones</span><span>${ov.devices}</span></div>
@@ -155,14 +160,18 @@ async function records() {
     "",
     `<div class="toolbar"><input type="search" id="q" placeholder="Search names, metadata and document text" value="${esc(q)}">
       <select id="f" style="width:auto;margin:0"><option value="all">All files</option><option value="todo" ${filter === "todo" ? "selected" : ""}>Needs metadata</option><option value="done" ${filter === "done" ? "selected" : ""}>Has metadata</option></select></div>
-    ${rows.length ? `<div class="tablewrap"><table><thead><tr><th>Record</th><th>Type</th><th>Subject</th><th>Expires</th></tr></thead><tbody>
+    ${
+      rows.length
+        ? `<div class="tablewrap"><table><thead><tr><th>Record</th><th>Type</th><th>Subject</th><th>Expires</th></tr></thead><tbody>
       ${rows
         .map(
           (r) => `<tr class="click" data-path="${esc(r.path)}"><td><b>${esc(r.metadata?.title ?? r.name)}</b><div class="path">${esc(r.path)}</div></td>
         <td>${r.metadata?.doc_type ? `<span class="pill">${esc(r.metadata.doc_type)}</span>` : `<span class="pill warn">needs metadata</span>`}</td>
         <td>${esc(r.metadata?.subject ?? "")}</td><td>${r.metadata?.expires_on ? `${esc(r.metadata.expires_on)} ${dayPill(r.metadata.expires_on)}` : ""}</td></tr>`,
         )
-        .join("")}</tbody></table></div>` : `<div class="empty">No files match.</div>`}`,
+        .join("")}</tbody></table></div>`
+        : `<div class="empty">No files match.</div>`
+    }`,
   );
   const go = () => (location.hash = `records?q=${encodeURIComponent($("#q").value)}&f=${$("#f").value}`);
   $("#q").onkeydown = (e) => e.key === "Enter" && go();
@@ -202,7 +211,13 @@ async function openRecord(path) {
     for (const kv of d.querySelectorAll(".kv")) {
       const [k, v] = kv.querySelectorAll("input");
       if (!k.value.trim()) continue;
-      fields[k.value.trim()] = k.value.trim() === "tags" ? v.value.split(",").map((s) => s.trim()).filter(Boolean) : v.value;
+      fields[k.value.trim()] =
+        k.value.trim() === "tags"
+          ? v.value
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : v.value;
     }
     for (const k of keys) if (!(k in fields)) fields[k] = null;
     await api("/file/meta", { method: "PUT", body: { path: r.path, fields } });
@@ -260,9 +275,19 @@ async function connections(ov) {
       ${["write", "organize", "reveal"].map((s) => `<label class="check"><input type="checkbox" name="scopes" value="${s}" ${s === "write" ? "checked" : ""}> ${s}${s === "reveal" ? ' <span class="muted">(unmasked, no approval)</span>' : ""}</label>`).join("")}</fieldset>
       <button class="primary">Create token</button></form><div id="newtok"></div></div></div>
     <h2>Connected</h2>
-    ${conns.length ? `<div class="tablewrap"><table><thead><tr><th>Agent</th><th>Kind</th><th>Folders</th><th>Permissions</th><th>Last used</th><th></th></tr></thead><tbody>
-    ${conns.map((c) => `<tr><td><b>${esc(c.name)}</b></td><td>${c.kind === "oauth" ? "OAuth" : "Token"}</td><td>${esc(c.grant.roots.join(", "))}</td><td>${c.grant.scopes.map((s) => `<span class="pill ${s === "reveal" ? "warn" : ""}">${esc(s)}</span>`).join(" ")}</td><td>${ago(c.last_used_at)}</td>
-      <td><button class="danger" data-revoke="${esc(c.kind === "token" ? "pat:" + c.hash : c.client_id)}">Revoke</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No agents connected yet.</div>`}`,
+    ${
+      conns.length
+        ? `<div class="tablewrap"><table><thead><tr><th>Agent</th><th>Kind</th><th>Folders</th><th>Permissions</th><th>Last used</th><th></th></tr></thead><tbody>
+    ${conns
+      .map(
+        (
+          c,
+        ) => `<tr><td><b>${esc(c.name)}</b></td><td>${c.kind === "oauth" ? "OAuth" : "Token"}</td><td>${esc(c.grant.roots.join(", "))}</td><td>${c.grant.scopes.map((s) => `<span class="pill ${s === "reveal" ? "warn" : ""}">${esc(s)}</span>`).join(" ")}</td><td>${ago(c.last_used_at)}</td>
+      <td><button class="danger" data-revoke="${esc(c.kind === "token" ? `pat:${c.hash}` : c.client_id)}">Revoke</button></td></tr>`,
+      )
+      .join("")}</tbody></table></div>`
+        : `<div class="empty">No agents connected yet.</div>`
+    }`,
   );
   $("#tok").onsubmit = async (e) => {
     e.preventDefault();
@@ -282,15 +307,29 @@ async function connections(ov) {
 async function journal() {
   const rows = await api("/journal");
   const describe = (e) =>
-    e.kind === "move" ? `<div class="path">${esc(e.from)}</div><div class="path" style="color:var(--accent)">→ ${esc(e.to)}</div>` : e.kind === "metadata" ? `Metadata of <span class="path">${esc(e.to)}</span>` : e.kind === "conventions" ? "VAULT.md updated" : `Undo of ${esc(e.undoes?.slice(0, 8))}`;
+    e.kind === "move"
+      ? `<div class="path">${esc(e.from)}</div><div class="path" style="color:var(--accent)">→ ${esc(e.to)}</div>`
+      : e.kind === "metadata"
+        ? `Metadata of <span class="path">${esc(e.to)}</span>`
+        : e.kind === "conventions"
+          ? "VAULT.md updated"
+          : `Undo of ${esc(e.undoes?.slice(0, 8))}`;
   shell(
     "journal",
     "Journal",
     "",
     `<p class="muted">Every change Satchel makes is appended to <code>.satchel/journal.jsonl</code> inside your folder, so the history travels with your files.</p>
-    ${rows.length ? `<div class="tablewrap"><table><thead><tr><th>When</th><th>Change</th><th>By</th><th></th></tr></thead><tbody>
-    ${rows.map((e) => `<tr><td style="white-space:nowrap">${esc(new Date(e.at).toLocaleString())}</td><td>${describe(e)}</td><td>${esc(e.actor)}</td>
-      <td>${e.kind !== "undo" ? (e.undone ? `<span class="pill">undone</span>` : `<button data-undo="${e.id}">Undo</button>`) : ""}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No changes yet.</div>`}`,
+    ${
+      rows.length
+        ? `<div class="tablewrap"><table><thead><tr><th>When</th><th>Change</th><th>By</th><th></th></tr></thead><tbody>
+    ${rows
+      .map(
+        (e) => `<tr><td style="white-space:nowrap">${esc(new Date(e.at).toLocaleString())}</td><td>${describe(e)}</td><td>${esc(e.actor)}</td>
+      <td>${e.kind !== "undo" ? (e.undone ? `<span class="pill">undone</span>` : `<button data-undo="${e.id}">Undo</button>`) : ""}</td></tr>`,
+      )
+      .join("")}</tbody></table></div>`
+        : `<div class="empty">No changes yet.</div>`
+    }`,
   );
   for (const b of root.querySelectorAll("[data-undo]"))
     b.onclick = async () => {
@@ -311,9 +350,19 @@ async function activity() {
     "Activity",
     "",
     `<p class="muted">Everything agents asked for, and which sensitive values each one actually received.</p>
-    ${rows.length ? `<div class="tablewrap"><table><thead><tr><th>When</th><th>Agent</th><th>Tool</th><th>Arguments</th><th>Disclosed</th></tr></thead><tbody>
-    ${rows.map((r) => `<tr><td style="white-space:nowrap">${esc(new Date(r.at).toLocaleString())}</td><td>${esc(r.client_name)}</td><td><code>${esc(r.tool)}</code>${r.outcome === "error" ? ' <span class="pill bad">error</span>' : ""}</td>
-      <td class="path">${esc(JSON.stringify(r.args))}</td><td>${r.revealed.length ? r.revealed.map((x) => `<span class="pill warn">${esc(x.split("#")[1])}</span>`).join(" ") : '<span class="muted">nothing</span>'}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No agent activity yet.</div>`}`,
+    ${
+      rows.length
+        ? `<div class="tablewrap"><table><thead><tr><th>When</th><th>Agent</th><th>Tool</th><th>Arguments</th><th>Disclosed</th></tr></thead><tbody>
+    ${rows
+      .map(
+        (
+          r,
+        ) => `<tr><td style="white-space:nowrap">${esc(new Date(r.at).toLocaleString())}</td><td>${esc(r.client_name)}</td><td><code>${esc(r.tool)}</code>${r.outcome === "error" ? ' <span class="pill bad">error</span>' : ""}</td>
+      <td class="path">${esc(JSON.stringify(r.args))}</td><td>${r.revealed.length ? r.revealed.map((x) => `<span class="pill warn">${esc(x.split("#")[1])}</span>`).join(" ") : '<span class="muted">nothing</span>'}</td></tr>`,
+      )
+      .join("")}</tbody></table></div>`
+        : `<div class="empty">No agent activity yet.</div>`
+    }`,
   );
 }
 
@@ -336,7 +385,8 @@ async function conventions(ov) {
 
 async function security() {
   const { policy, defaults } = await api("/policy");
-  const sel = (k) => `<select name="${k}" style="width:auto;margin:0"><option value="always" ${policy.approvals[k] === "always" ? "selected" : ""}>Ask me</option><option value="never" ${policy.approvals[k] === "never" ? "selected" : ""}>Allow</option></select>`;
+  const sel = (k) =>
+    `<select name="${k}" style="width:auto;margin:0"><option value="always" ${policy.approvals[k] === "always" ? "selected" : ""}>Ask me</option><option value="never" ${policy.approvals[k] === "never" ? "selected" : ""}>Allow</option></select>`;
   shell(
     "security",
     "Security",
@@ -356,7 +406,18 @@ async function security() {
     const approvalsSet = {};
     for (const s of root.querySelectorAll("#appr select")) approvalsSet[s.name] = s.value;
     try {
-      await api("/policy", { method: "PUT", body: { policy: { sensitivePatterns: $("#pats").value.split("\n").map((s) => s.trim()).filter(Boolean), approvals: approvalsSet } } });
+      await api("/policy", {
+        method: "PUT",
+        body: {
+          policy: {
+            sensitivePatterns: $("#pats")
+              .value.split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean),
+            approvals: approvalsSet,
+          },
+        },
+      });
       toast("Saved");
     } catch (err) {
       toast(err.message);
@@ -380,7 +441,8 @@ async function phone(ov) {
   );
   $("#pair").onclick = async () => {
     const p = await api("/pair", { method: "POST" });
-    $("#pairing").innerHTML = `<div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes</p><div class="snippet">${esc(p.url)}</div>`;
+    $("#pairing").innerHTML =
+      `<div class="qr">${p.qr}</div><p>Code <b style="font-family:var(--mono);letter-spacing:.1em">${esc(p.code)}</b> · valid 10 minutes</p><div class="snippet">${esc(p.url)}</div>`;
   };
   for (const b of root.querySelectorAll("[data-rm]"))
     b.onclick = async () => {
@@ -397,7 +459,7 @@ async function settings() {
     `<button class="primary" id="save">Save</button>`,
     `<div class="grid g2"><div class="card"><h3 style="margin-top:0">Node</h3>
       <label>Name<input type="text" id="name" value="${esc(s.name)}"></label>
-      <label>Inbox for phone captures<input type="text" id="inbox" value="${esc(s.inbox ?? "")}" placeholder="${esc((s.roots[0]?.name ?? "home") + "/Inbox")}"></label>
+      <label>Inbox for phone captures<input type="text" id="inbox" value="${esc(s.inbox ?? "")}" placeholder="${esc(`${s.roots[0]?.name ?? "home"}/Inbox`)}"></label>
       <h3>Folders</h3><p class="muted" style="font-size:.88rem">Local folders, mounted NAS shares, or folders synced by the Google Drive / Dropbox / OneDrive apps all work.</p>
       <div id="roots">${s.roots.map((r) => `<div class="kv" style="grid-template-columns:120px 1fr 28px"><input value="${esc(r.name)}"><input value="${esc(r.path)}"><button class="danger" data-rm>×</button></div>`).join("")}</div>
       <button id="addroot">Add folder</button></div>
@@ -409,14 +471,23 @@ async function settings() {
       <label>Model<input type="text" id="model" value="${esc(s.helpers.llm?.model ?? "")}" placeholder="qwen3:1.7b"></label></div></div>`,
   );
   $("#roots").onclick = (e) => e.target.matches("[data-rm]") && e.target.parentElement.remove();
-  $("#addroot").onclick = () => $("#roots").insertAdjacentHTML("beforeend", `<div class="kv" style="grid-template-columns:120px 1fr 28px"><input placeholder="name"><input placeholder="/path/to/folder"><button class="danger" data-rm>×</button></div>`);
+  $("#addroot").onclick = () =>
+    $("#roots").insertAdjacentHTML(
+      "beforeend",
+      `<div class="kv" style="grid-template-columns:120px 1fr 28px"><input placeholder="name"><input placeholder="/path/to/folder"><button class="danger" data-rm>×</button></div>`,
+    );
   $("#save").onclick = async () => {
-    const roots = [...root.querySelectorAll("#roots .kv")].map((kv) => {
-      const [n, p] = kv.querySelectorAll("input");
-      return { name: n.value.trim(), path: p.value.trim() };
-    }).filter((r) => r.name && r.path);
+    const roots = [...root.querySelectorAll("#roots .kv")]
+      .map((kv) => {
+        const [n, p] = kv.querySelectorAll("input");
+        return { name: n.value.trim(), path: p.value.trim() };
+      })
+      .filter((r) => r.name && r.path);
     const llm = $("#llm").value.trim() ? { url: $("#llm").value.trim(), model: $("#model").value.trim() || "qwen3:1.7b" } : null;
-    await api("/settings", { method: "PUT", body: { name: $("#name").value, inbox: $("#inbox").value.trim() || null, roots, helpers: { ocr: $("#ocr").checked, llm } } });
+    await api("/settings", {
+      method: "PUT",
+      body: { name: $("#name").value, inbox: $("#inbox").value.trim() || null, roots, helpers: { ocr: $("#ocr").checked, llm } },
+    });
     toast("Saved");
   };
 }

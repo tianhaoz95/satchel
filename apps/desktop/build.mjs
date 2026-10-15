@@ -14,7 +14,15 @@ await build({
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   logLevel: "warning",
 });
-await build({ entryPoints: ["src/preload.ts"], bundle: true, platform: "node", format: "cjs", outfile: "out/preload.cjs", external: ["electron"], logLevel: "warning" });
+await build({
+  entryPoints: ["src/preload.ts"],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  outfile: "out/preload.cjs",
+  external: ["electron"],
+  logLevel: "warning",
+});
 
 // macOS OCR helper (Vision framework). Optional: skipped when swiftc isn't available.
 if (process.platform === "darwin") {

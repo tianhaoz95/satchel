@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { backend, newNodeToken, RELAY_CONTROL, RELAY_DOMAIN, SUBDOMAIN_RE, type NodeRow, type User } from "../data";
 
@@ -26,13 +26,30 @@ function Setup({ node, token }: { node: NodeRow; token: string }) {
   return (
     <div className="card setup">
       <h3>Connect {node.name}</h3>
-      <p><b>Copy this token now.</b> Only its hash is stored, so it can't be shown again.</p>
-      <div className="snippet"><code>{token}</code><Copy text={token} /></div>
+      <p>
+        <b>Copy this token now.</b> Only its hash is stored, so it can't be shown again.
+      </p>
+      <div className="snippet">
+        <code>{token}</code>
+        <Copy text={token} />
+      </div>
       <p className="muted">On a machine that already runs a node:</p>
-      <div className="snippet"><code>{cmd}</code><Copy text={cmd} /></div>
+      <div className="snippet">
+        <code>{cmd}</code>
+        <Copy text={cmd} />
+      </div>
       <p className="muted">Or start a new node on your NAS:</p>
-      <div className="snippet"><pre>{docker}</pre><Copy text={docker} /></div>
-      <p className="muted">Then add <code>https://{node.subdomain}.{RELAY_DOMAIN}/mcp</code> as a custom connector in your AI agent.</p>
+      <div className="snippet">
+        <pre>{docker}</pre>
+        <Copy text={docker} />
+      </div>
+      <p className="muted">
+        Then add{" "}
+        <code>
+          https://{node.subdomain}.{RELAY_DOMAIN}/mcp
+        </code>{" "}
+        as a custom connector in your AI agent.
+      </p>
     </div>
   );
 }
@@ -51,15 +68,22 @@ export default function Portal({ user }: { user: User | null }) {
   }, []);
   useEffect(() => {
     if (checked && !user) void navigate("/login", { replace: true });
-  }, [checked, user]);
-  const load = () => backend.listNodes().then(setNodes).catch((e) => setError(e.message));
+  }, [checked, user, navigate]);
+  const load = useCallback(
+    () =>
+      backend
+        .listNodes()
+        .then(setNodes)
+        .catch((e) => setError(e.message)),
+    [],
+  );
   useEffect(() => {
     if (user) {
       load();
       const t = setInterval(load, 20_000);
       return () => clearInterval(t);
     }
-  }, [user]);
+  }, [user, load]);
 
   if (!user) return null;
 
@@ -99,7 +123,9 @@ export default function Portal({ user }: { user: User | null }) {
           <p className="eyebrow">Signed in as {user.email}</p>
           <h1>Your nodes</h1>
         </div>
-        <button onClick={() => backend.signOut()}>Sign out</button>
+        <button type="button" onClick={() => backend.signOut()}>
+          Sign out
+        </button>
       </div>
       {backend.demo && <p className="note">Demo mode: Supabase isn't configured. Nodes are stored in this browser only and won't reach a real relay.</p>}
       {error && <p className="error">{error}</p>}
@@ -108,16 +134,36 @@ export default function Portal({ user }: { user: User | null }) {
         <div className="table-card">
           <table className="table">
             <thead>
-              <tr><th>Node</th><th>Address</th><th>Status</th><th>Last seen</th><th></th></tr>
+              <tr>
+                <th>Node</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Last seen</th>
+                <th></th>
+              </tr>
             </thead>
             <tbody>
               {active.map((n) => (
                 <tr key={n.id}>
-                  <td><b>{n.name}</b>{n.reported_name && <div className="muted small">{n.reported_name}</div>}</td>
-                  <td><code>https://{n.subdomain}.{RELAY_DOMAIN}/mcp</code></td>
+                  <td>
+                    <b>{n.name}</b>
+                    {n.reported_name && <div className="muted small">{n.reported_name}</div>}
+                  </td>
+                  <td>
+                    <code>
+                      https://{n.subdomain}.{RELAY_DOMAIN}/mcp
+                    </code>
+                  </td>
                   <td>{n.online ? <span className="pill ok">online</span> : <span className="pill">offline</span>}</td>
                   <td>{ago(n.last_seen_at)}</td>
-                  <td className="actions"><button className="small" onClick={() => rotate(n)}>New token</button><button className="small danger" onClick={() => revoke(n)}>Revoke</button></td>
+                  <td className="actions">
+                    <button type="button" className="small" onClick={() => rotate(n)}>
+                      New token
+                    </button>
+                    <button type="button" className="small danger" onClick={() => revoke(n)}>
+                      Revoke
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -128,12 +174,20 @@ export default function Portal({ user }: { user: User | null }) {
         <form className="card" onSubmit={create}>
           <h3>Add a node</h3>
           <p className="muted">Each node gets its own address and token. Most people need one: the NAS or the computer that holds their records.</p>
-          <label>Name<input value={name} onChange={(e) => setName(e.target.value)} placeholder="Home NAS" /></label>
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Home NAS" />
+          </label>
           <label>
             Address
-            <span className="suffix-input"><input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="alex" required /><span>.{RELAY_DOMAIN}</span></span>
+            <span className="suffix-input">
+              <input value={sub} onChange={(e) => setSub(e.target.value)} placeholder="alex" required />
+              <span>.{RELAY_DOMAIN}</span>
+            </span>
           </label>
-          <button className="primary">Create node</button>
+          <button type="submit" className="primary">
+            Create node
+          </button>
         </form>
         <div className="card">
           <h3>What this account holds</h3>
@@ -143,8 +197,12 @@ export default function Portal({ user }: { user: User | null }) {
             <li>A SHA-256 hash of each node token</li>
             <li>Online status reported by the relay</li>
           </ul>
-          <p className="muted">Your files, metadata, agent connections and approvals live on your node only. The relay forwards encrypted traffic it cannot read.</p>
-          <button className="small danger" onClick={() => confirm("Delete your account and all node addresses?") && backend.deleteAccount()}>Delete account</button>
+          <p className="muted">
+            Your files, metadata, agent connections and approvals live on your node only. The relay forwards encrypted traffic it cannot read.
+          </p>
+          <button type="button" className="small danger" onClick={() => confirm("Delete your account and all node addresses?") && backend.deleteAccount()}>
+            Delete account
+          </button>
         </div>
       </div>
     </main>

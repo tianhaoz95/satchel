@@ -79,7 +79,8 @@ export function adminRouter(node: SatchelNode): Router {
   r.use((req: Request, res: Response, next: NextFunction) => {
     if (!isAdmin(req)) return res.status(401).json({ error: "Not signed in" });
     // Same-origin check for state-changing requests (SameSite=Strict already blocks most CSRF).
-    if (req.method !== "GET" && req.headers.origin && new URL(req.headers.origin).host !== req.get("host")) return res.status(403).json({ error: "Bad origin" });
+    if (req.method !== "GET" && req.headers.origin && new URL(req.headers.origin).host !== req.get("host"))
+      return res.status(403).json({ error: "Bad origin" });
     next();
   });
 
@@ -90,7 +91,12 @@ export function adminRouter(node: SatchelNode): Router {
     wrap(() => {
       const last = node.store.get("last_agent_query_at");
       const upcoming = node.vault.queryDates(
-        { keys: ["expires_on", "renew_by"], after: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10), before: new Date(Date.now() + 365 * 86400_000).toISOString().slice(0, 10), limit: 12 },
+        {
+          keys: ["expires_on", "renew_by"],
+          after: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10),
+          before: new Date(Date.now() + 365 * 86400_000).toISOString().slice(0, 10),
+          limit: 12,
+        },
         ["*"],
       );
       return {
@@ -104,7 +110,13 @@ export function adminRouter(node: SatchelNode): Router {
         public_url: node.config.publicHost ? `https://${node.config.publicHost}` : null,
         local_url: `http://${node.config.listen.host}:${node.config.listen.port}`,
         tunnel: tunnelStatus(),
-        upcoming: upcoming.map((u) => ({ key: u.key, date: u.date, path: u.file.vpath, title: u.file.meta?.title ?? u.file.name, subject: u.file.meta?.subject ?? null })),
+        upcoming: upcoming.map((u) => ({
+          key: u.key,
+          date: u.date,
+          path: u.file.vpath,
+          title: u.file.meta?.title ?? u.file.name,
+          subject: u.file.meta?.subject ?? null,
+        })),
       };
     }),
   );
@@ -141,16 +153,31 @@ export function adminRouter(node: SatchelNode): Router {
     }
   });
 
-  r.put("/file/meta", wrap(async (req) => node.vault.setMetadata(String(req.body.path), req.body.fields ?? {}, { replace: !!req.body.replace, actor: "owner" })));
+  r.put(
+    "/file/meta",
+    wrap(async (req) => node.vault.setMetadata(String(req.body.path), req.body.fields ?? {}, { replace: !!req.body.replace, actor: "owner" })),
+  );
 
-  r.post("/file/text", wrap(async (req) => node.vault.putText(String(req.body.path), String(req.body.text ?? ""))));
+  r.post(
+    "/file/text",
+    wrap(async (req) => node.vault.putText(String(req.body.path), String(req.body.text ?? ""))),
+  );
 
-  r.post("/rescan", wrap(async () => node.vault.scan()));
+  r.post(
+    "/rescan",
+    wrap(async () => node.vault.scan()),
+  );
 
-  r.get("/tree", wrap(() => node.vault.tree(["*"])));
+  r.get(
+    "/tree",
+    wrap(() => node.vault.tree(["*"])),
+  );
 
   // ---- connections (OAuth clients and personal access tokens)
-  r.get("/connections", wrap(() => node.store.listConnections()));
+  r.get(
+    "/connections",
+    wrap(() => node.store.listConnections()),
+  );
   r.post(
     "/tokens",
     wrap((req) => {
@@ -175,16 +202,40 @@ export function adminRouter(node: SatchelNode): Router {
   );
 
   // ---- approvals
-  r.get("/approvals", wrap((req) => node.store.listApprovals(req.query.status ? (String(req.query.status) as any) : undefined)));
-  r.post("/approvals/:id", wrap(async (req) => node.decide(String(req.params.id), req.body.decision === "approved" ? "approved" : "denied", "owner (desktop)")));
+  r.get(
+    "/approvals",
+    wrap((req) => node.store.listApprovals(req.query.status ? (String(req.query.status) as any) : undefined)),
+  );
+  r.post(
+    "/approvals/:id",
+    wrap(async (req) => node.decide(String(req.params.id), req.body.decision === "approved" ? "approved" : "denied", "owner (desktop)")),
+  );
 
   // ---- journal, audit, conventions, policy
-  r.get("/journal", wrap(() => node.vault.journalEntries(["*"], 300)));
-  r.post("/journal/:id/undo", wrap(async (req) => node.vault.undo(String(req.params.id), "owner")));
-  r.get("/audit", wrap((req) => node.store.listAudit(300, req.query.client ? String(req.query.client) : undefined)));
-  r.get("/conventions", wrap(async (req) => ({ text: await node.vault.getConventions(String(req.query.root ?? node.config.roots[0]?.name)) })));
-  r.put("/conventions", wrap(async (req) => node.vault.setConventions(String(req.body.root), String(req.body.text), "owner")));
-  r.get("/policy", wrap(() => ({ policy: node.config.policy, defaults: DEFAULT_POLICY })));
+  r.get(
+    "/journal",
+    wrap(() => node.vault.journalEntries(["*"], 300)),
+  );
+  r.post(
+    "/journal/:id/undo",
+    wrap(async (req) => node.vault.undo(String(req.params.id), "owner")),
+  );
+  r.get(
+    "/audit",
+    wrap((req) => node.store.listAudit(300, req.query.client ? String(req.query.client) : undefined)),
+  );
+  r.get(
+    "/conventions",
+    wrap(async (req) => ({ text: await node.vault.getConventions(String(req.query.root ?? node.config.roots[0]?.name)) })),
+  );
+  r.put(
+    "/conventions",
+    wrap(async (req) => node.vault.setConventions(String(req.body.root), String(req.body.text), "owner")),
+  );
+  r.get(
+    "/policy",
+    wrap(() => ({ policy: node.config.policy, defaults: DEFAULT_POLICY })),
+  );
   r.put(
     "/policy",
     wrap((req) => {
@@ -197,7 +248,17 @@ export function adminRouter(node: SatchelNode): Router {
   );
 
   // ---- settings
-  r.get("/settings", wrap(() => ({ name: node.config.name, roots: node.config.roots, inbox: node.config.inbox, relay: node.config.relay ? { control: node.config.relay.control } : null, publicHost: node.config.publicHost, helpers: node.config.helpers })));
+  r.get(
+    "/settings",
+    wrap(() => ({
+      name: node.config.name,
+      roots: node.config.roots,
+      inbox: node.config.inbox,
+      relay: node.config.relay ? { control: node.config.relay.control } : null,
+      publicHost: node.config.publicHost,
+      helpers: node.config.helpers,
+    })),
+  );
   r.put(
     "/settings",
     wrap((req) => {
@@ -213,8 +274,14 @@ export function adminRouter(node: SatchelNode): Router {
   );
 
   // ---- companion devices
-  r.get("/devices", wrap(() => node.store.listDevices()));
-  r.delete("/devices/:id", wrap((req) => node.store.removeDevice(String(req.params.id))));
+  r.get(
+    "/devices",
+    wrap(() => node.store.listDevices()),
+  );
+  r.delete(
+    "/devices/:id",
+    wrap((req) => node.store.removeDevice(String(req.params.id))),
+  );
   r.post(
     "/pair",
     wrap(async (req) => {
@@ -224,7 +291,10 @@ export function adminRouter(node: SatchelNode): Router {
       return { code, url, qr: await QRCode.toString(url, { type: "svg", margin: 1 }) };
     }),
   );
-  r.get("/deliveries", wrap(() => node.store.listDeliveries().map((d) => ({ ...d, value: undefined }))));
+  r.get(
+    "/deliveries",
+    wrap(() => node.store.listDeliveries().map((d) => ({ ...d, value: undefined }))),
+  );
 
   // ---- live updates for the UI
   r.get("/events", (req, res) => {

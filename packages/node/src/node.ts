@@ -58,7 +58,11 @@ export class SatchelNode {
         const w = watch(r.path, { recursive: true }, () => {
           if (pending) clearTimeout(pending);
           pending = setTimeout(() => {
-            if (!this.stopped) void this.vault.scan().then(() => this.emit("index"), () => {});
+            if (!this.stopped)
+              void this.vault.scan().then(
+                () => this.emit("index"),
+                () => {},
+              );
           }, 750);
         });
         this.watchers.push(w);
@@ -136,7 +140,10 @@ export class SatchelNode {
       if (v == null) continue;
       const value = String(v).trim();
       if (value.length < 4) continue;
-      const loose = value.split("").map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("[\\s-]?");
+      const loose = value
+        .split("")
+        .map((c) => c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("[\\s-]?");
       out = out.replace(new RegExp(loose, "gi"), () => {
         redactions++;
         return `[${key} redacted]`;
@@ -157,7 +164,7 @@ export class SatchelNode {
   /** Called from the admin UI or the phone. Side-effecting actions run immediately on approval. */
   async decide(id: string, decision: "approved" | "denied", by: string): Promise<Approval | undefined> {
     const a = this.store.decideApproval(id, decision, by);
-    if (!a || a.status !== "approved") {
+    if (a?.status !== "approved") {
       this.emit("approval", a);
       return a;
     }

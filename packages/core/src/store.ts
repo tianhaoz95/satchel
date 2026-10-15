@@ -173,7 +173,9 @@ export class Store {
   /** One row per connected client (OAuth client or personal access token), newest grant wins. */
   listConnections(): Array<{ client_id: string; name: string; kind: string; grant: Grant; last_used_at: number | null; created_at: number; hash: string }> {
     const rows = this.db
-      .prepare("select * from tokens where kind in ('pat','refresh') or (kind = 'access' and client_id not in (select client_id from tokens where kind = 'refresh')) order by created_at desc")
+      .prepare(
+        "select * from tokens where kind in ('pat','refresh') or (kind = 'access' and client_id not in (select client_id from tokens where kind = 'refresh')) order by created_at desc",
+      )
       .all() as any[];
     const seen = new Set<string>();
     const out = [];
@@ -188,7 +190,7 @@ export class Store {
         name: r.kind === "pat" ? r.label : this.clientName(r.client_id),
         kind: r.kind === "pat" ? "token" : "oauth",
         grant: t.grant,
-        last_used_at: r.kind === "pat" ? r.last_used_at : used?.m ?? null,
+        last_used_at: r.kind === "pat" ? r.last_used_at : (used?.m ?? null),
         created_at: r.created_at,
         hash: r.hash,
       });
@@ -247,7 +249,9 @@ export class Store {
   // ---- reorganization plans
   savePlan(clientId: string, moves: Array<{ from: string; to: string }>): string {
     const id = randomUUID();
-    this.db.prepare("insert into plans(id, client_id, moves, status, created_at) values(?,?,?,?,?)").run(id, clientId, JSON.stringify(moves), "proposed", Date.now());
+    this.db
+      .prepare("insert into plans(id, client_id, moves, status, created_at) values(?,?,?,?,?)")
+      .run(id, clientId, JSON.stringify(moves), "proposed", Date.now());
     return id;
   }
   getPlan(id: string): { id: string; client_id: string; moves: Array<{ from: string; to: string }>; status: string } | undefined {
@@ -275,7 +279,9 @@ export class Store {
   // ---- deliveries (secrets sent to the owner's devices, never to the model)
   addDelivery(d: Omit<Delivery, "id" | "at" | "seen">): Delivery {
     const row: Delivery = { ...d, id: randomUUID(), at: Date.now(), seen: 0 };
-    this.db.prepare("insert into deliveries(id, at, client_name, title, value, note, seen) values(?,?,?,?,?,?,0)").run(row.id, row.at, row.client_name, row.title, row.value, row.note);
+    this.db
+      .prepare("insert into deliveries(id, at, client_name, title, value, note, seen) values(?,?,?,?,?,?,0)")
+      .run(row.id, row.at, row.client_name, row.title, row.value, row.note);
     return row;
   }
   listDeliveries(limit = 50): Delivery[] {
@@ -319,7 +325,9 @@ export class Store {
     this.db.prepare("delete from push_subs where device_id = ?").run(id);
   }
   savePushSub(deviceId: string, sub: { endpoint: string }) {
-    this.db.prepare("insert into push_subs(endpoint, device_id, sub) values(?,?,?) on conflict(endpoint) do update set sub = excluded.sub").run(sub.endpoint, deviceId, JSON.stringify(sub));
+    this.db
+      .prepare("insert into push_subs(endpoint, device_id, sub) values(?,?,?) on conflict(endpoint) do update set sub = excluded.sub")
+      .run(sub.endpoint, deviceId, JSON.stringify(sub));
   }
   listPushSubs(): Array<{ endpoint: string; sub: any }> {
     return (this.db.prepare("select endpoint, sub from push_subs").all() as any[]).map((r) => ({ endpoint: r.endpoint, sub: JSON.parse(r.sub) }));

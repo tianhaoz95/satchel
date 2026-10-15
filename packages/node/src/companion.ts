@@ -63,17 +63,26 @@ export function companionRouter(node: SatchelNode): Router {
 
   r.get("/upcoming", (_req, res) => {
     const rows = node.vault.queryDates(
-      { keys: ["expires_on", "renew_by"], after: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10), before: new Date(Date.now() + 180 * 86400_000).toISOString().slice(0, 10), limit: 20 },
+      {
+        keys: ["expires_on", "renew_by"],
+        after: new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10),
+        before: new Date(Date.now() + 180 * 86400_000).toISOString().slice(0, 10),
+        limit: 20,
+      },
       ["*"],
     );
-    res.json(rows.map((u) => ({ key: u.key, date: u.date, path: u.file.vpath, title: u.file.meta?.title ?? u.file.name, subject: u.file.meta?.subject ?? null })));
+    res.json(
+      rows.map((u) => ({ key: u.key, date: u.date, path: u.file.vpath, title: u.file.meta?.title ?? u.file.name, subject: u.file.meta?.subject ?? null })),
+    );
   });
 
   /** Capture: a photo or PDF from the phone lands in the inbox folder, ready for an agent to file. */
   r.post("/capture", express.raw({ type: "*/*", limit: "25mb" }), async (req, res) => {
     const inbox = node.inboxRoot();
     if (!inbox) return res.status(400).json({ error: "No roots configured" });
-    const original = String(req.headers["x-filename"] ?? "capture.jpg").replace(/[/\\]/g, "_").slice(0, 120);
+    const original = String(req.headers["x-filename"] ?? "capture.jpg")
+      .replace(/[/\\]/g, "_")
+      .slice(0, 120);
     const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
     const rel = `${inbox.folder}/${stamp} ${original}`;
     const vpath = `${inbox.root}/${rel}`;

@@ -66,7 +66,7 @@ export function loadConfig(dataDir: string): NodeConfig {
 
 export function saveConfig(dataDir: string, config: NodeConfig) {
   mkdirSync(dataDir, { recursive: true });
-  writeFileSync(path.join(dataDir, "config.json"), JSON.stringify(config, null, 2) + "\n", { mode: 0o600 });
+  writeFileSync(path.join(dataDir, "config.json"), `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 }
 
 export function hashPassword(password: string): { salt: string; hash: string } {

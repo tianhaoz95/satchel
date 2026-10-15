@@ -66,10 +66,15 @@ export class SatchelAuthProvider implements OAuthServerProvider {
         redirectUri: redirect.href,
         codeChallenge: String(b.code_challenge),
         state: b.state ? String(b.state) : undefined,
-        scopes: String(b.requested_scopes ?? "").split(" ").filter(Boolean),
+        scopes: String(b.requested_scopes ?? "")
+          .split(" ")
+          .filter(Boolean),
         resource: b.resource ? new URL(String(b.resource)) : undefined,
       };
-      return res.status(401).type("html").send(consentPage(client, params, config, "Wrong password."));
+      return res
+        .status(401)
+        .type("html")
+        .send(consentPage(client, params, config, "Wrong password."));
     }
     const asArray = (v: unknown) => (Array.isArray(v) ? v.map(String) : v ? [String(v)] : []);
     const roots = asArray(b.roots).filter((r) => config.roots.some((x) => x.name === r));
@@ -98,7 +103,7 @@ export class SatchelAuthProvider implements OAuthServerProvider {
 
   async exchangeRefreshToken(client: OAuthClientInformationFull, refreshToken: string): Promise<OAuthTokens> {
     const row = this.store.findToken(refreshToken);
-    if (!row || row.kind !== "refresh" || row.client_id !== client.client_id) throw new InvalidGrantError("Invalid refresh token");
+    if (row?.kind !== "refresh" || row.client_id !== client.client_id) throw new InvalidGrantError("Invalid refresh token");
     this.store.revokeToken(refreshToken);
     return this.issue(client.client_id, row.grant);
   }
@@ -145,7 +150,8 @@ function consentPage(client: OAuthClientInformationFull, params: AuthorizationPa
     </fieldset>
     <fieldset><legend>What it can do</legend>
       ${ALL_SCOPES.map(
-        (s) => `<label class="check"><input type="checkbox" name="scopes" value="${s}" ${s === "read" ? "checked disabled" : requested.includes(s) && s !== "reveal" ? "checked" : ""}> <b>${s}</b> <span class="muted">${esc(SCOPE_TEXT[s])}</span></label>`,
+        (s) =>
+          `<label class="check"><input type="checkbox" name="scopes" value="${s}" ${s === "read" ? "checked disabled" : requested.includes(s) && s !== "reveal" ? "checked" : ""}> <b>${s}</b> <span class="muted">${esc(SCOPE_TEXT[s])}</span></label>`,
       ).join("")}
       <input type="hidden" name="scopes" value="read">
     </fieldset>

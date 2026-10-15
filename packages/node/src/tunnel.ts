@@ -4,7 +4,13 @@ import { readFileSync } from "node:fs";
 import { onLines, readLine, send, PROTOCOL_VERSION } from "@satchel/core";
 import type { RelayConfig } from "./config.ts";
 
-export type TunnelState = { state: "off" | "connecting" | "online" | "error"; host: string | null; error: string | null; since: number | null; streams: number };
+export type TunnelState = {
+  state: "off" | "connecting" | "online" | "error";
+  host: string | null;
+  error: string | null;
+  since: number | null;
+  streams: number;
+};
 
 let status: TunnelState = { state: "off", host: null, error: null, since: null, streams: 0 };
 export const tunnelStatus = () => status;

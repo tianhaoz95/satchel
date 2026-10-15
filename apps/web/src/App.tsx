@@ -24,6 +24,7 @@ export default function App() {
     backend.user().then(setUser);
     return backend.onAuth(setUser);
   }, []);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll to top whenever the route changes
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [loc.pathname]);
@@ -38,9 +39,13 @@ export default function App() {
             <NavLink to="/docs">Docs</NavLink>
             <a href="https://github.com/tianhaoz95/satchel">GitHub</a>
             {user ? (
-              <NavLink to="/portal" className="button small">Portal</NavLink>
+              <NavLink to="/portal" className="button small">
+                Portal
+              </NavLink>
             ) : (
-              <NavLink to="/login" className="button small">Sign in</NavLink>
+              <NavLink to="/login" className="button small">
+                Sign in
+              </NavLink>
             )}
           </nav>
         </div>
@@ -51,7 +56,15 @@ export default function App() {
         <Route path="/docs/:slug" element={<Docs />} />
         <Route path="/login" element={<Login user={user} />} />
         <Route path="/portal/*" element={<Portal user={user} />} />
-        <Route path="*" element={<div className="container section"><h1>Not found</h1><Link to="/">Go home</Link></div>} />
+        <Route
+          path="*"
+          element={
+            <div className="container section">
+              <h1>Not found</h1>
+              <Link to="/">Go home</Link>
+            </div>
+          }
+        />
       </Routes>
       <footer className="site-foot">
         <div className="container foot-row">

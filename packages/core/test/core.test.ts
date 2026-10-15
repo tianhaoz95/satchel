@@ -50,7 +50,13 @@ test("vault paths cannot escape their root or touch reserved files", async () =>
 
 test("SNI is parsed from a real TLS ClientHello", async () => {
   const hello: Buffer = await new Promise((resolve) => {
-    const srv = net.createServer((s) => s.once("data", (d) => { resolve(d); s.destroy(); srv.close(); }));
+    const srv = net.createServer((s) =>
+      s.once("data", (d) => {
+        resolve(d);
+        s.destroy();
+        srv.close();
+      }),
+    );
     srv.listen(0, "127.0.0.1", () => {
       const c = tls.connect({ host: "127.0.0.1", port: (srv.address() as any).port, servername: "alex.satchel.dev", rejectUnauthorized: false });
       c.on("error", () => {});

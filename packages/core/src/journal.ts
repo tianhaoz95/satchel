@@ -17,7 +17,7 @@ export class Journal {
   async append(entry: Omit<JournalEntry, "id" | "at">): Promise<JournalEntry> {
     const full: JournalEntry = { id: randomUUID(), at: new Date().toISOString(), ...entry };
     await mkdir(path.dirname(this.file), { recursive: true });
-    await appendFile(this.file, JSON.stringify(full) + "\n", "utf8");
+    await appendFile(this.file, `${JSON.stringify(full)}\n`, "utf8");
     return full;
   }
 

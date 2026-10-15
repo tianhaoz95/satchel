@@ -42,11 +42,44 @@ saveConfig(data, config);
 const node = new SatchelNode(data);
 await node.start();
 const meta: Record<string, Record<string, unknown>> = {
-  "People/Alex/ID/2024-05 Driver License (exp 2032-05).txt": { doc_type: "drivers_license", subject: "Alex", title: "California Driver License", issued_on: "2024-05-14", expires_on: plus(2400), license_number: "D7741025" },
-  "People/Alex/ID/2019-03 Passport.txt": { doc_type: "passport", subject: "Alex", title: "US Passport", expires_on: plus(150), renew_by: plus(-30), passport_number: "567123498" },
-  "People/Alex/Medical/2025-11 Eye Prescription.txt": { doc_type: "eye_prescription", subject: "Alex", title: "Eye prescription", expires_on: plus(38), provider: "Bright Eyes Optometry" },
-  "Vehicles/2019 Honda Civic/Registration/2025-03 Registration.txt": { doc_type: "vehicle_registration", subject: "2019 Honda Civic", title: "Civic registration", expires_on: plus(21), plate_number: "8ABC123", vin_number: "2HGFC2F59KH512345" },
-  "Vehicles/2019 Honda Civic/Insurance/2026-01 Auto Policy.txt": { doc_type: "insurance_policy", subject: "2019 Honda Civic", title: "Auto insurance", expires_on: plus(92), policy_number: "AM-99812-77" },
+  "People/Alex/ID/2024-05 Driver License (exp 2032-05).txt": {
+    doc_type: "drivers_license",
+    subject: "Alex",
+    title: "California Driver License",
+    issued_on: "2024-05-14",
+    expires_on: plus(2400),
+    license_number: "D7741025",
+  },
+  "People/Alex/ID/2019-03 Passport.txt": {
+    doc_type: "passport",
+    subject: "Alex",
+    title: "US Passport",
+    expires_on: plus(150),
+    renew_by: plus(-30),
+    passport_number: "567123498",
+  },
+  "People/Alex/Medical/2025-11 Eye Prescription.txt": {
+    doc_type: "eye_prescription",
+    subject: "Alex",
+    title: "Eye prescription",
+    expires_on: plus(38),
+    provider: "Bright Eyes Optometry",
+  },
+  "Vehicles/2019 Honda Civic/Registration/2025-03 Registration.txt": {
+    doc_type: "vehicle_registration",
+    subject: "2019 Honda Civic",
+    title: "Civic registration",
+    expires_on: plus(21),
+    plate_number: "8ABC123",
+    vin_number: "2HGFC2F59KH512345",
+  },
+  "Vehicles/2019 Honda Civic/Insurance/2026-01 Auto Policy.txt": {
+    doc_type: "insurance_policy",
+    subject: "2019 Honda Civic",
+    title: "Auto insurance",
+    expires_on: plus(92),
+    policy_number: "AM-99812-77",
+  },
   "Home/Lease/2026-02 Apartment Lease.txt": { doc_type: "lease", subject: "Home", title: "Apartment lease", expires_on: plus(140), renew_by: plus(80) },
   "Home/Warranties/2024-08 Dishwasher Warranty.txt": { doc_type: "warranty", subject: "Home", title: "Dishwasher warranty", expires_on: plus(-12) },
   "Pets/Mochi/2026-04 Rabies Vaccination.txt": { doc_type: "vaccination", subject: "Mochi", title: "Rabies vaccination", expires_on: plus(200) },
@@ -71,7 +104,12 @@ const call = async (name: string, args: any = {}) => {
 await call("vault_status");
 await call("list_expiring", { within_days: 90, include_past_days: 30, keys: ["expires_on", "renew_by"] });
 await call("get_record", { path: "home/Vehicles/2019 Honda Civic/Registration/2025-03 Registration.txt" });
-await call("set_metadata", { path: "home/Scans/IMG_4471.txt", fields: { doc_type: "trusted_traveler", subject: "Alex", title: "Global Entry card", expires_on: plus(820), passid_number: "158822041" }, replace: false, reason: "" });
+await call("set_metadata", {
+  path: "home/Scans/IMG_4471.txt",
+  fields: { doc_type: "trusted_traveler", subject: "Alex", title: "Global Entry card", expires_on: plus(820), passid_number: "158822041" },
+  replace: false,
+  reason: "",
+});
 await call("propose_reorganization", {
   moves: [
     { from: "home/Scans/IMG_4471.txt", to: `home/People/Alex/ID/2025-12 Global Entry (exp ${plus(820).slice(0, 7)}).txt` },
@@ -79,11 +117,19 @@ await call("propose_reorganization", {
   ],
   reason: "Scans folder has two documents that belong under People/Alex per VAULT.md.",
 });
-await call("reveal_field", { path: "home/People/Alex/ID/2019-03 Passport.txt", key: "passport_number", reason: "You asked me to fill in the passport renewal form (DS-82)." });
-await call("deliver_to_user", { path: "home/Vehicles/2019 Honda Civic/Registration/2025-03 Registration.txt", key: "plate_number", note: "For the DMV online renewal form." });
+await call("reveal_field", {
+  path: "home/People/Alex/ID/2019-03 Passport.txt",
+  key: "passport_number",
+  reason: "You asked me to fill in the passport renewal form (DS-82).",
+});
+await call("deliver_to_user", {
+  path: "home/Vehicles/2019 Honda Civic/Registration/2025-03 Registration.txt",
+  key: "plate_number",
+  note: "For the DMV online renewal form.",
+});
 const gem = buildMcpServer(node, { clientId: "c-gemini", clientName: "Gemini", grant: { label: "Gemini", roots: ["*"], scopes: ["read"] } }) as any;
-await gem._registeredTools["list_expiring"].handler({ within_days: 60, include_past_days: 0, keys: ["expires_on"] }, {});
-await gem._registeredTools["search"].handler({ query: "eye prescription", limit: 5 }, {});
+await gem._registeredTools.list_expiring.handler({ within_days: 60, include_past_days: 0, keys: ["expires_on"] }, {});
+await gem._registeredTools.search.handler({ query: "eye prescription", limit: 5 }, {});
 const dev = node.store.addDevice("iPhone");
 node.stop();
 console.log(JSON.stringify({ dir, vault, data, pat, device_token: dev.token, password: process.env.SATCHEL_PASSWORD ?? "demo" }, null, 2));

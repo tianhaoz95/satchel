@@ -1,25 +1,130 @@
 name: CI
 on:
-  push: { branches: [main] }
+  push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
-  test:
+  lint:
+    name: Lint & format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with: { node-version: 24, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
+      - run: pnpm exec biome ci .
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
       - run: pnpm typecheck
+
+  test:
+    name: Tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
       - run: pnpm test
+
+  db:
+    name: Database schema & RLS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: pnpm test:db
+
+  ui:
+    name: Browser smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
       - run: pnpm build:web
-  desktop-build:
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:ui
+
+  desktop:
+    name: Desktop build (macOS)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v5
-        with: { node-version: 24, cache: pnpm }
-      - run: pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - run: pnpm --filter @satchel/desktop build
+      - name: OCR helper builds and runs
+        run: test -x apps/desktop/helpers/bin/satchel-ocr
+
+  docker:
+    name: Container images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+      - name: Build node image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/node.Dockerfile
+          tags: satchel-node:ci
+          load: true
+          cache-from: type=gha,scope=node
+          cache-to: type=gha,scope=node,mode=max
+      - name: Build relay image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/relay.Dockerfile
+          tags: satchel-relay:ci
+          load: true
+          cache-from: type=gha,scope=relay
+          cache-to: type=gha,scope=relay,mode=max
+      - name: Node container serves the admin API
+        run: |
+          mkdir -p vault && chmod 777 vault
+          docker run -d --name node -p 7710:7710 -e SATCHEL_PASSWORD=ci-password -v "$PWD/vault:/vault" satchel-node:ci
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:7710/admin/api/session && break; sleep 1; done
+          curl -fsS http://127.0.0.1:7710/admin/api/session | grep -q '"initialized":true'
+          test -f vault/VAULT.md
+      - name: Relay container starts
+        run: |
+          docker run -d --name relay -e SATCHEL_RELAY_NODES_FILE=/tmp/nodes.json -e SATCHEL_RELAY_PUBLIC_PORT=8443 satchel-relay:ci
+          sleep 3
+          docker logs relay 2>&1 | grep -q "public :8443"
+      - name: Container logs
+        if: failure()
+        run: docker logs node; docker logs relay
+
+  workflows:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+  ci-ok:
+    name: CI passed
+    if: always()
+    needs: [lint, typecheck, test, db, ui, desktop, docker, workflows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required jobs succeeded
+        run: |
+          echo '${{ toJSON(needs) }}' | grep -q '"result": "\(failure\|cancelled\)"' && exit 1 || exit 0

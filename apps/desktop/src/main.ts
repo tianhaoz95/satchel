@@ -6,19 +6,23 @@ import { Helpers } from "./helpers.ts";
 
 const dataDir = process.env.SATCHEL_DATA_DIR ?? defaultDataDir();
 const resources = app.isPackaged ? process.resourcesPath : path.join(import.meta.dirname, "..");
-process.env.SATCHEL_UI_DIR ??= app.isPackaged ? path.join(process.resourcesPath, "ui") : path.join(import.meta.dirname, "..", "..", "..", "packages", "node", "ui");
+process.env.SATCHEL_UI_DIR ??= app.isPackaged
+  ? path.join(process.resourcesPath, "ui")
+  : path.join(import.meta.dirname, "..", "..", "..", "packages", "node", "ui");
 
 let running: RunningNode | null = null;
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let helpers: Helpers | null = null;
 
-const ICON = nativeImage.createFromDataURL(
-  "data:image/svg+xml;base64," +
-    Buffer.from(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="3" y="7" width="26" height="20" rx="4" fill="black"/><rect x="11" y="4" width="10" height="6" rx="2" fill="none" stroke="black" stroke-width="2"/></svg>',
-    ).toString("base64"),
-).resize({ width: 18, height: 18 });
+const ICON = nativeImage
+  .createFromDataURL(
+    "data:image/svg+xml;base64," +
+      Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="3" y="7" width="26" height="20" rx="4" fill="black"/><rect x="11" y="4" width="10" height="6" rx="2" fill="none" stroke="black" stroke-width="2"/></svg>',
+      ).toString("base64"),
+  )
+  .resize({ width: 18, height: 18 });
 ICON.setTemplateImage(true);
 
 function localUrl() {
@@ -30,7 +34,14 @@ function localUrl() {
 async function openAdmin(hash = "overview") {
   if (!running) return showSetup();
   if (!win || win.isDestroyed()) {
-    win = new BrowserWindow({ width: 1240, height: 820, minWidth: 720, title: "Satchel", backgroundColor: "#fafaf9", webPreferences: { contextIsolation: true } });
+    win = new BrowserWindow({
+      width: 1240,
+      height: 820,
+      minWidth: 720,
+      title: "Satchel",
+      backgroundColor: "#fafaf9",
+      webPreferences: { contextIsolation: true },
+    });
     win.webContents.setWindowOpenHandler(({ url }) => {
       void shell.openExternal(url);
       return { action: "deny" };
@@ -54,7 +65,10 @@ function showSetup() {
 }
 
 ipcMain.handle("choose-folder", async () => {
-  const res = await dialog.showOpenDialog({ properties: ["openDirectory", "createDirectory"], message: "Choose the folder that holds (or will hold) your records" });
+  const res = await dialog.showOpenDialog({
+    properties: ["openDirectory", "createDirectory"],
+    message: "Choose the folder that holds (or will hold) your records",
+  });
   return res.canceled ? null : res.filePaths[0];
 });
 
@@ -115,7 +129,12 @@ app.whenReady().then(async () => {
     await boot();
     if (!process.argv.includes("--hidden")) await openAdmin();
   } else {
-    tray.setContextMenu(Menu.buildFromTemplate([{ label: "Set up Satchel…", click: showSetup }, { label: "Quit", click: () => app.quit() }]));
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: "Set up Satchel…", click: showSetup },
+        { label: "Quit", click: () => app.quit() },
+      ]),
+    );
     showSetup();
   }
 });

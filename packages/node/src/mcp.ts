@@ -134,7 +134,8 @@ export function buildMcpServer(node: SatchelNode, actor: Actor): McpServer {
     "search",
     {
       title: "Search records",
-      description: "Full-text search over file names, metadata and extracted document text. Filters narrow by doc_type, subject or folder. Empty query lists files.",
+      description:
+        "Full-text search over file names, metadata and extracted document text. Filters narrow by doc_type, subject or folder. Empty query lists files.",
       input: {
         query: z.string().default(""),
         doc_type: z.string().optional(),
@@ -221,7 +222,8 @@ export function buildMcpServer(node: SatchelNode, actor: Actor): McpServer {
     "read_file",
     {
       title: "Read file text",
-      description: "Extracted text of a document (text files, PDFs, or OCR text added by a Satchel helper). Known sensitive values are redacted unless this connection has the reveal permission.",
+      description:
+        "Extracted text of a document (text files, PDFs, or OCR text added by a Satchel helper). Known sensitive values are redacted unless this connection has the reveal permission.",
       input: { path: z.string(), max_chars: z.number().int().min(100).max(100_000).default(20_000) },
       scope: "read",
       readOnly: true,
@@ -278,7 +280,10 @@ export function buildMcpServer(node: SatchelNode, actor: Actor): McpServer {
       description:
         "Proposes a batch of moves/renames (paths include the root, e.g. 'home/Scans/img_001.pdf' -> 'home/Vehicles/2019 Honda Civic/Registration/2026-03 Registration (exp 2027-03).pdf'). Sidecars move with their files. The owner approves the whole plan; every move is journaled and can be undone.",
       input: {
-        moves: z.array(z.object({ from: z.string(), to: z.string() })).min(1).max(500),
+        moves: z
+          .array(z.object({ from: z.string(), to: z.string() }))
+          .min(1)
+          .max(500),
         reason: z.string().default(""),
       },
       scope: "organize",

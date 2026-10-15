@@ -14,7 +14,10 @@ export const DOCS = Object.entries(files)
 
 export default function Docs() {
   const { slug = "introduction" } = useParams();
-  const idx = Math.max(0, DOCS.findIndex((d) => d.slug === slug));
+  const idx = Math.max(
+    0,
+    DOCS.findIndex((d) => d.slug === slug),
+  );
   const doc = DOCS[idx];
   const html = useMemo(() => marked.parse(doc.body, { async: false }) as string, [doc]);
   return (
@@ -28,6 +31,7 @@ export default function Docs() {
         ))}
       </aside>
       <article className="prose">
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Markdown comes from this repository at build time, not from users */}
         <div dangerouslySetInnerHTML={{ __html: html }} />
         <div className="pager">
           {idx > 0 ? <Link to={`/docs/${DOCS[idx - 1].slug}`}>← {DOCS[idx - 1].title}</Link> : <span />}

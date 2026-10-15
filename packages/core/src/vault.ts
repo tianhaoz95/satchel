@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync } from "node:fs";
+import { createReadStream, type Dirent, existsSync } from "node:fs";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Journal } from "./journal.ts";
@@ -216,7 +216,7 @@ export class Vault {
     sql += rootClause(allowedRoots, params);
     if (filters.path_prefix) {
       sql += " and f.vpath like ? escape '\\'";
-      params.push(escapeLike(filters.path_prefix) + "%");
+      params.push(`${escapeLike(filters.path_prefix)}%`);
     }
     if (filters.has_metadata !== undefined) sql += filters.has_metadata ? " and f.meta is not null" : " and f.meta is null";
     if (filters.doc_type) {
@@ -261,7 +261,7 @@ export class Vault {
 
   stats(allowedRoots: string[]) {
     const params: any[] = [];
-    const where = "where 1=1" + rootClause(allowedRoots, params);
+    const where = `where 1=1${rootClause(allowedRoots, params)}`;
     const row = this.store.db
       .prepare(`select count(*) as files, sum(case when meta is not null then 1 else 0 end) as with_meta, sum(has_text) as with_text from files f ${where}`)
       .get(...params) as any;
@@ -404,7 +404,7 @@ export class Vault {
 // ------------------------------------------------------------------ helpers
 
 async function* walk(dir: string): AsyncGenerator<string> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {
@@ -450,7 +450,7 @@ function rootClause(allowedRoots: string[], params: any[]): string {
 }
 
 function escapeLike(s: string) {
-  return s.replace(/[\\%_]/g, (c) => "\\" + c);
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 function flattenForSearch(meta: Metadata, hidden: Set<string>): string {

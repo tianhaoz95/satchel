@@ -18,10 +18,7 @@ export function maskValue(value: unknown): string {
 }
 
 /** Returns a copy of `meta` with sensitive values masked, plus the list of masked keys. */
-export function maskMetadata(
-  meta: Metadata,
-  policy: SecurityPolicy,
-): { meta: Metadata; masked: string[] } {
+export function maskMetadata(meta: Metadata, policy: SecurityPolicy): { meta: Metadata; masked: string[] } {
   const keys = sensitiveKeys(meta, policy);
   const out: Metadata = {};
   const masked: string[] = [];
@@ -47,10 +44,7 @@ export function mergeMetadata(existing: Metadata | null, patch: Metadata, replac
     if (v === null) delete base[k];
     else base[k] = v;
   }
-  const sens = new Set<string>([
-    ...((existing?.sensitive as string[] | undefined) ?? []),
-    ...((patch.sensitive as string[] | undefined) ?? []),
-  ]);
+  const sens = new Set<string>([...((existing?.sensitive as string[] | undefined) ?? []), ...((patch.sensitive as string[] | undefined) ?? [])]);
   if (sens.size) base.sensitive = [...sens].sort();
   return base;
 }

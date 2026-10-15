@@ -3,7 +3,7 @@ import tls from "node:tls";
 import http from "node:http";
 import https from "node:https";
 import { randomBytes } from "node:crypto";
-import { onLines, parseSni, readLine, send, PROTOCOL_VERSION } from "@satchel/core";
+import { type ControlMessage, onLines, PROTOCOL_VERSION, parseSni, readLine, send } from "@satchel/core";
 import type { NodeIdentity, TokenVerifier } from "./verifier.ts";
 import type { DnsProvider } from "./dns.ts";
 
@@ -120,7 +120,7 @@ export class Relay {
 
   private async onControl(sock: net.Socket) {
     sock.on("error", () => {});
-    let first;
+    let first: ControlMessage;
     try {
       first = await readLine(sock);
     } catch {

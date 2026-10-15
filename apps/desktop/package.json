@@ -21,10 +21,42 @@
   "build": {
     "appId": "dev.satchel.desktop",
     "productName": "Satchel",
-    "files": ["out/**", "assets/**"],
-    "extraResources": [{ "from": "../../packages/node/ui", "to": "ui" }, { "from": "helpers/bin", "to": "helpers", "filter": ["**/*"] }],
-    "mac": { "category": "public.app-category.productivity", "target": ["dmg", "zip"], "hardenedRuntime": true },
-    "win": { "target": ["nsis"] },
-    "linux": { "target": ["AppImage", "deb"], "category": "Office" }
+    "files": [
+      "out/**",
+      "assets/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../../packages/node/ui",
+        "to": "ui"
+      },
+      {
+        "from": "helpers/bin",
+        "to": "helpers",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "hardenedRuntime": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office"
+    }
   }
 }

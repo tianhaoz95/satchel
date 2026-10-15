@@ -20,7 +20,7 @@ export class Helpers {
   constructor(node: SatchelNode, resourcesDir: string) {
     this.node = node;
     const candidates = [path.join(resourcesDir, "helpers", "satchel-ocr"), path.join(import.meta.dirname ?? ".", "..", "helpers", "bin", "satchel-ocr")];
-    this.ocrBin = process.platform === "darwin" ? candidates.find((c) => existsSync(c)) ?? null : null;
+    this.ocrBin = process.platform === "darwin" ? (candidates.find((c) => existsSync(c)) ?? null) : null;
   }
 
   async tick() {

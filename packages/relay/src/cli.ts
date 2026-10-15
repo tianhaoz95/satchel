@@ -19,7 +19,7 @@ if (cmd === "add-node") {
   const token = `satchel_node_${randomBytes(24).toString("base64url")}`;
   data.nodes = data.nodes.filter((n: any) => n.subdomain !== sub);
   data.nodes.push({ subdomain: sub, token_sha256: hashToken(token), created_at: new Date().toISOString() });
-  writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
+  writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`);
   console.log(token);
 } else if (cmd === "serve") {
   const domain = env.SATCHEL_RELAY_DOMAIN ?? "localhost";
@@ -31,7 +31,10 @@ if (cmd === "add-node") {
     apiHost: env.SATCHEL_RELAY_API_HOST ?? `relay.${domain}`,
     publicPort: Number(env.SATCHEL_RELAY_PUBLIC_PORT ?? 443),
     controlPort: Number(env.SATCHEL_RELAY_CONTROL_PORT ?? 7443),
-    tls: env.SATCHEL_RELAY_TLS_CERT && env.SATCHEL_RELAY_TLS_KEY ? { cert: readFileSync(env.SATCHEL_RELAY_TLS_CERT), key: readFileSync(env.SATCHEL_RELAY_TLS_KEY) } : undefined,
+    tls:
+      env.SATCHEL_RELAY_TLS_CERT && env.SATCHEL_RELAY_TLS_KEY
+        ? { cert: readFileSync(env.SATCHEL_RELAY_TLS_CERT), key: readFileSync(env.SATCHEL_RELAY_TLS_KEY) }
+        : undefined,
     verifier,
     dns: env.CLOUDFLARE_ZONE_ID && env.CLOUDFLARE_API_TOKEN ? new CloudflareDns(env.CLOUDFLARE_ZONE_ID, env.CLOUDFLARE_API_TOKEN) : undefined,
   });

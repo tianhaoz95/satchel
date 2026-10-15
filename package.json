@@ -7,8 +7,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test --test-reporter=spec 'packages/*/test/*.test.ts'",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && pnpm --filter @satchel/web exec tsc --noEmit -p .",
+    "test": "node --test --test-reporter=spec \"packages/*/test/*.test.ts\"",
+    "test:db": "node --test --test-reporter=spec supabase/test/*.test.ts",
+    "test:ui": "node --test --test-reporter=spec --test-concurrency=1 tests/ui/*.test.ts",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm test:db",
     "dev:node": "node packages/node/src/cli.ts serve",
     "dev:relay": "node packages/relay/src/cli.ts",
     "dev:web": "pnpm --filter @satchel/web dev",
@@ -16,6 +21,8 @@
     "build:desktop": "pnpm --filter @satchel/desktop build"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@electric-sql/pglite": "^0.5.9",
     "@types/node": "^24.0.0",
     "playwright": "1.64.1",
     "typescript": "^5.9.0"

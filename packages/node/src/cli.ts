@@ -68,7 +68,9 @@ async function main() {
     await node.vault.scan();
     const stats = node.vault.stats(["*"]);
     node.stop();
-    console.log(`Initialized ${dataDir}\nRoots: ${config.roots.map((r) => `${r.name} → ${r.path}`).join(", ")}\nIndexed ${stats.files} files. Run "satchel serve" next.`);
+    console.log(
+      `Initialized ${dataDir}\nRoots: ${config.roots.map((r) => `${r.name} → ${r.path}`).join(", ")}\nIndexed ${stats.files} files. Run "satchel serve" next.`,
+    );
     return;
   }
 
@@ -84,7 +86,15 @@ async function main() {
 
   if (cmd === "token") {
     const node = new SatchelNode(dataDir);
-    const scopes = Array.from(new Set(["read", ...(values.scopes ?? "").split(",").map((s) => s.trim()).filter(Boolean)]));
+    const scopes = Array.from(
+      new Set([
+        "read",
+        ...(values.scopes ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ]),
+    );
     const roots = values.roots ? values.roots.split(",").map((s) => s.trim()) : ["*"];
     const token = node.store.issueToken("pat", "pat", { label: values.label ?? "Personal token", roots, scopes }, null);
     node.stop();
@@ -98,7 +108,7 @@ async function main() {
     const node = new SatchelNode(dataDir);
     await node.start();
     const row = node.store.findToken(token);
-    if (!row || row.kind !== "pat") throw new Error("Invalid token");
+    if (row?.kind !== "pat") throw new Error("Invalid token");
     const server = buildMcpServer(node, { clientId: `pat:${row.hash}`, clientName: row.label, grant: row.grant });
     await server.connect(new StdioServerTransport());
     return;
@@ -109,7 +119,15 @@ async function main() {
     const c = node.config;
     console.log(
       JSON.stringify(
-        { dataDir, name: c.name, roots: c.roots, local: `http://${c.listen.host}:${c.listen.port}`, relay: c.relay?.control ?? null, publicHost: c.publicHost, ...node.vault.stats(["*"]) },
+        {
+          dataDir,
+          name: c.name,
+          roots: c.roots,
+          local: `http://${c.listen.host}:${c.listen.port}`,
+          relay: c.relay?.control ?? null,
+          publicHost: c.publicHost,
+          ...node.vault.stats(["*"]),
+        },
         null,
         2,
       ),

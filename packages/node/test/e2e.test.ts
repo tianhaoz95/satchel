@@ -16,22 +16,27 @@ let relay: Relay;
 let running: RunningNode;
 let pat: string;
 let base: string;
-const NODE_TOKEN = "satchel_node_" + randomBytes(12).toString("hex");
+const NODE_TOKEN = `satchel_node_${randomBytes(12).toString("hex")}`;
 
 before(async () => {
   tmp = await mkdtemp(path.join(os.tmpdir(), "satchel-e2e-"));
   vaultDir = path.join(tmp, "vault");
   dataDir = path.join(tmp, "data");
   await mkdir(path.join(vaultDir, "Scans"), { recursive: true });
-  await writeFile(
-    path.join(vaultDir, "Scans", "scan_0001.txt"),
-    "STATE OF CALIFORNIA DRIVER LICENSE\nDL D1234567\nEXP 12/01/2026\nALEX RIVERA\n",
-  );
+  await writeFile(path.join(vaultDir, "Scans", "scan_0001.txt"), "STATE OF CALIFORNIA DRIVER LICENSE\nDL D1234567\nEXP 12/01/2026\nALEX RIVERA\n");
   await writeFile(path.join(vaultDir, "Scans", "receipt.txt"), "Coffee 4.50");
 
   const nodesFile = path.join(tmp, "nodes.json");
   await writeFile(nodesFile, JSON.stringify({ nodes: [{ subdomain: "alex", token_sha256: hashToken(NODE_TOKEN) }] }));
-  relay = new Relay({ domain: "satchel.test", apiHost: "relay.satchel.test", publicPort: 0, controlPort: 0, host: "127.0.0.1", verifier: new FileVerifier(nodesFile), log: () => {} });
+  relay = new Relay({
+    domain: "satchel.test",
+    apiHost: "relay.satchel.test",
+    publicPort: 0,
+    controlPort: 0,
+    host: "127.0.0.1",
+    verifier: new FileVerifier(nodesFile),
+    log: () => {},
+  });
   await relay.start();
 
   const config = loadConfig(dataDir);
@@ -161,17 +166,32 @@ test("scopes are enforced per connection", async () => {
 
 test("OAuth 2.1: dynamic registration, consent with password, PKCE token exchange", async () => {
   const reg = await (
-    await fetch(`${base}/register`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Test Agent", redirect_uris: ["http://127.0.0.1:9/cb"], token_endpoint_auth_method: "none" }) })
+    await fetch(`${base}/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ client_name: "Test Agent", redirect_uris: ["http://127.0.0.1:9/cb"], token_endpoint_auth_method: "none" }),
+    })
   ).json();
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const authUrl = `${base}/authorize?response_type=code&client_id=${reg.client_id}&redirect_uri=${encodeURIComponent("http://127.0.0.1:9/cb")}&code_challenge=${challenge}&code_challenge_method=S256&state=xyz&scope=read%20write`;
   const consent = await (await fetch(authUrl)).text();
   assert.match(consent, /Test Agent/);
-  const form = new URLSearchParams({ client_id: reg.client_id, redirect_uri: "http://127.0.0.1:9/cb", state: "xyz", code_challenge: challenge, password: "correct horse", action: "allow" });
+  const form = new URLSearchParams({
+    client_id: reg.client_id,
+    redirect_uri: "http://127.0.0.1:9/cb",
+    state: "xyz",
+    code_challenge: challenge,
+    password: "correct horse",
+    action: "allow",
+  });
   form.append("roots", "home");
   form.append("scopes", "write");
-  const wrong = await fetch(`${base}/oauth/consent`, { method: "POST", body: new URLSearchParams({ ...Object.fromEntries(form), password: "nope" }), redirect: "manual" });
+  const wrong = await fetch(`${base}/oauth/consent`, {
+    method: "POST",
+    body: new URLSearchParams({ ...Object.fromEntries(form), password: "nope" }),
+    redirect: "manual",
+  });
   assert.equal(wrong.status, 401);
   const res = await fetch(`${base}/oauth/consent`, { method: "POST", body: form, redirect: "manual" });
   assert.equal(res.status, 302);
@@ -180,7 +200,13 @@ test("OAuth 2.1: dynamic registration, consent with password, PKCE token exchang
   const tok = await (
     await fetch(`${base}/token`, {
       method: "POST",
-      body: new URLSearchParams({ grant_type: "authorization_code", code: loc.searchParams.get("code")!, code_verifier: verifier, client_id: reg.client_id, redirect_uri: "http://127.0.0.1:9/cb" }),
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: loc.searchParams.get("code")!,
+        code_verifier: verifier,
+        client_id: reg.client_id,
+        redirect_uri: "http://127.0.0.1:9/cb",
+      }),
     })
   ).json();
   assert.ok(tok.access_token, JSON.stringify(tok));
@@ -200,7 +226,12 @@ test("relay: TLS passthrough by SNI to the node, relay never holds the key", asy
         path: "/mcp",
         method: "POST",
         rejectUnauthorized: false,
-        headers: { host: "alex.satchel.test", "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `Bearer ${pat}` },
+        headers: {
+          host: "alex.satchel.test",
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
+          authorization: `Bearer ${pat}`,
+        },
       },
       (res) => {
         const cert = (res.socket as any).getPeerCertificate();
@@ -219,7 +250,10 @@ test("relay: TLS passthrough by SNI to the node, relay never holds the key", asy
   // Unknown subdomains are dropped
   await assert.rejects(
     new Promise((resolve, reject) => {
-      const req = https.request({ host: "127.0.0.1", port: relay.publicPort, servername: "nobody.satchel.test", rejectUnauthorized: false, path: "/" }, resolve);
+      const req = https.request(
+        { host: "127.0.0.1", port: relay.publicPort, servername: "nobody.satchel.test", rejectUnauthorized: false, path: "/" },
+        resolve,
+      );
       req.on("error", reject);
       req.end();
     }),

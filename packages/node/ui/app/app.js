@@ -4,14 +4,30 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const root = $("#root");
 const store = {
-  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
-  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} },
-  del: (k) => { try { localStorage.removeItem(k); } catch {} },
+  get: (k) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k, v) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {}
+  },
+  del: (k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch {}
+  },
 };
 const ACTIONS = { reveal_field: "See a sensitive value", apply_plan: "Reorganize files", update_conventions: "Change VAULT.md", set_metadata: "Edit metadata" };
 const ICON = {
-  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg>',
-  inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>',
+  check:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><rect x="3" y="3" width="18" height="18" rx="4"/></svg>',
+  inbox:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/></svg>',
   cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
   cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
 };
@@ -22,7 +38,12 @@ async function api(path, opts = {}) {
   const token = store.get("satchel_device");
   if (token) headers.authorization = `Bearer ${token}`;
   if (opts.json) headers["content-type"] = "application/json";
-  const res = await fetch(`/app/api${path}`, { method: opts.method ?? "GET", headers, body: opts.json ? JSON.stringify(opts.json) : opts.body, credentials: "same-origin" });
+  const res = await fetch(`/app/api${path}`, {
+    method: opts.method ?? "GET",
+    headers,
+    body: opts.json ? JSON.stringify(opts.json) : opts.body,
+    credentials: "same-origin",
+  });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     store.del("satchel_device");
@@ -61,7 +82,12 @@ function renderPair(error = "") {
 }
 
 function frame(tab, body, pendingCount = 0) {
-  const tabs = [["approvals", "Approve", ICON.check], ["inbox", "Inbox", ICON.inbox], ["upcoming", "Upcoming", ICON.cal], ["capture", "Capture", ICON.cam]];
+  const tabs = [
+    ["approvals", "Approve", ICON.check],
+    ["inbox", "Inbox", ICON.inbox],
+    ["upcoming", "Upcoming", ICON.cal],
+    ["capture", "Capture", ICON.cam],
+  ];
   root.innerHTML = `<div class="top">${LOGO}<b>Satchel</b><span class="muted" style="font-size:.85rem">${esc(state.node)}</span></div>
     <div class="screen">${body}</div>
     <nav class="tabs">${tabs.map(([id, label, icon]) => `<a href="#${id}" class="${id === tab ? "active" : ""}">${icon}${id === "approvals" && pendingCount ? `<span class="badge">${pendingCount}</span>` : ""}${label}</a>`).join("")}</nav>`;
@@ -76,11 +102,22 @@ async function approvals() {
   const card = (a) => `<div class="approval"><div class="row" style="margin:0;justify-content:space-between"><b>${esc(ACTIONS[a.action] ?? a.action)}</b>
     ${a.status === "pending" ? '<span class="pill warn">waiting</span>' : `<span class="pill ${["approved", "used"].includes(a.status) ? "ok" : "bad"}">${esc(a.status)}</span>`}</div>
     <dl class="facts"><dt>Agent</dt><dd>${esc(a.client_name)}</dd><dt>Target</dt><dd><code>${esc(a.target)}</code></dd><dt>When</dt><dd>${ago(a.created_at)}</dd></dl>
-    ${a.detail.moves ? `<div class="moves">${a.detail.moves.slice(0, 20).map((m) => `<div>${esc(m.from)}<br><span class="to">→ ${esc(m.to)}</span></div>`).join("")}${a.detail.moves.length > 20 ? `<div>…and ${a.detail.moves.length - 20} more</div>` : ""}</div>` : ""}
+    ${
+      a.detail.moves
+        ? `<div class="moves">${a.detail.moves
+            .slice(0, 20)
+            .map((m) => `<div>${esc(m.from)}<br><span class="to">→ ${esc(m.to)}</span></div>`)
+            .join("")}${a.detail.moves.length > 20 ? `<div>…and ${a.detail.moves.length - 20} more</div>` : ""}</div>`
+        : ""
+    }
     ${a.reason ? `<div class="reason"><span class="eyebrow">Agent's stated reason (unverified)</span><br>${esc(a.reason)}</div>` : ""}
     ${a.status === "pending" ? `<div class="row" style="display:grid;grid-template-columns:1fr 1fr"><button class="primary" data-ok="${a.id}">Approve</button><button data-no="${a.id}">Deny</button></div>` : ""}</div>`;
-  frame("approvals", `<h1>Approvals</h1>${pending.length ? pending.map(card).join("") : '<div class="empty">Nothing needs you right now.</div>'}
-    ${recent.length ? `<h2>Recent</h2>${recent.map(card).join("")}` : ""}${pushPrompt()}`, pending.length);
+  frame(
+    "approvals",
+    `<h1>Approvals</h1>${pending.length ? pending.map(card).join("") : '<div class="empty">Nothing needs you right now.</div>'}
+    ${recent.length ? `<h2>Recent</h2>${recent.map(card).join("")}` : ""}${pushPrompt()}`,
+    pending.length,
+  );
   for (const b of root.querySelectorAll("[data-ok],[data-no]"))
     b.onclick = async () => {
       b.disabled = true;
@@ -92,10 +129,23 @@ async function approvals() {
 
 async function inbox() {
   const list = await api("/deliveries");
-  frame("inbox", `<h1>Inbox</h1><p class="muted">Values agents sent you without seeing them. They're deleted after 24 hours.</p>
-    ${list.length ? list.map((d) => `<div class="card" style="margin-bottom:10px"><b>${esc(d.title)}</b><div class="muted" style="font-size:.85rem">from ${esc(d.client_name)} · ${ago(d.at)}</div>
+  frame(
+    "inbox",
+    `<h1>Inbox</h1><p class="muted">Values agents sent you without seeing them. They're deleted after 24 hours.</p>
+    ${
+      list.length
+        ? list
+            .map(
+              (
+                d,
+              ) => `<div class="card" style="margin-bottom:10px"><b>${esc(d.title)}</b><div class="muted" style="font-size:.85rem">from ${esc(d.client_name)} · ${ago(d.at)}</div>
       ${d.note ? `<p>${esc(d.note)}</p>` : ""}<div class="secret" data-secret="${esc(d.value)}">••••••••</div>
-      <div class="row" style="margin-top:4px"><button data-show>Show</button><button data-copy="${esc(d.value)}">Copy</button></div></div>`).join("") : '<div class="empty">Nothing here.</div>'}`);
+      <div class="row" style="margin-top:4px"><button data-show>Show</button><button data-copy="${esc(d.value)}">Copy</button></div></div>`,
+            )
+            .join("")
+        : '<div class="empty">Nothing here.</div>'
+    }`,
+  );
   for (const b of root.querySelectorAll("[data-show]"))
     b.onclick = () => {
       const s = b.closest(".card").querySelector(".secret");
@@ -113,23 +163,39 @@ async function inbox() {
 
 async function upcoming() {
   const list = await api("/upcoming");
-  frame("upcoming", `<h1>Upcoming</h1>${list.length ? `<div class="card list">${list.map((u) => {
-    const d = daysLeft(u.date);
-    return `<div><div><b>${esc(u.title)}</b><div class="muted" style="font-size:.85rem">${esc(u.subject ?? "")} · ${esc(u.date)}</div></div><span class="pill ${d < 0 ? "bad" : d <= 60 ? "warn" : "ok"}">${d < 0 ? `${-d} d late` : `${d} d`}</span></div>`;
-  }).join("")}</div>` : '<div class="empty">No dates in the next six months.</div>'}`);
+  frame(
+    "upcoming",
+    `<h1>Upcoming</h1>${
+      list.length
+        ? `<div class="card list">${list
+            .map((u) => {
+              const d = daysLeft(u.date);
+              return `<div><div><b>${esc(u.title)}</b><div class="muted" style="font-size:.85rem">${esc(u.subject ?? "")} · ${esc(u.date)}</div></div><span class="pill ${d < 0 ? "bad" : d <= 60 ? "warn" : "ok"}">${d < 0 ? `${-d} d late` : `${d} d`}</span></div>`;
+            })
+            .join("")}</div>`
+        : '<div class="empty">No dates in the next six months.</div>'
+    }`,
+  );
 }
 
 function capture(msg = "") {
-  frame("capture", `<h1>Capture</h1><p class="muted">Photograph a new document. It goes straight to your vault's Inbox folder, where your agent can file it.</p>
+  frame(
+    "capture",
+    `<h1>Capture</h1><p class="muted">Photograph a new document. It goes straight to your vault's Inbox folder, where your agent can file it.</p>
     <label class="capture" for="file">${ICON.cam}<b>Take a photo or choose a file</b><span class="muted">Images or PDF, up to 25 MB</span></label>
     <input type="file" id="file" accept="image/*,application/pdf" capture="environment" hidden>
     <label>Note for your agent (optional)<input type="text" id="note" placeholder="New registration for the Civic"></label>
-    ${msg}`);
+    ${msg}`,
+  );
   $("#file").onchange = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
     try {
-      const res = await api("/capture", { method: "POST", body: f, headers: { "x-filename": f.name, "x-note": $("#note").value, "content-type": f.type || "application/octet-stream" } });
+      const res = await api("/capture", {
+        method: "POST",
+        body: f,
+        headers: { "x-filename": f.name, "x-note": $("#note").value, "content-type": f.type || "application/octet-stream" },
+      });
       capture(`<p class="pill ok" style="margin-top:12px">Saved to ${esc(res.path)}</p>`);
     } catch (err) {
       capture(`<p class="error">${esc(err.message)}</p>`);
@@ -186,5 +252,8 @@ async function boot() {
 }
 if (!store.get("satchel_device")) {
   // A signed-in desktop admin session also works (the desktop app reuses these screens).
-  fetch("/app/api/me", { credentials: "same-origin" }).then((r) => (r.ok ? boot() : renderPair()), () => renderPair());
+  fetch("/app/api/me", { credentials: "same-origin" }).then(
+    (r) => (r.ok ? boot() : renderPair()),
+    () => renderPair(),
+  );
 } else boot();

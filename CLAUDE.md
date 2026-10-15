@@ -21,15 +21,22 @@ Open-source, agent-neutral vault for personal records (IDs, vehicle papers, insu
 
 ```bash
 pnpm install
-pnpm typecheck                     # server packages (root tsconfig)
+pnpm check                         # lint + typecheck + tests + DB schema: run before every commit
+pnpm lint / pnpm lint:fix          # Biome (lint + format, 160 cols)
+pnpm typecheck                     # server packages, tests, scripts + web app
 pnpm test                          # node:test, unit + e2e (agent → relay → node)
-cd apps/web && npx tsc --noEmit -p . && npx vite build
+pnpm test:db                       # Supabase migrations + RLS in PGlite
+pnpm build:web && pnpm test:ui     # Playwright smoke tests (needs: pnpm exec playwright install chromium)
 pnpm --filter @satchel/desktop build
 node scripts/demo-seed.ts          # demo vault in .satchel-dev (owner password: demo)
 node packages/node/src/cli.ts serve --data .satchel-dev/data   # http://127.0.0.1:7710
 ```
 
-Run `pnpm typecheck` and `pnpm test` before committing. The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, OAuth, approvals, scopes and the relay. Extend it when behavior changes.
+The e2e test (`packages/node/test/e2e.test.ts`) is the contract for MCP tools, OAuth, approvals, scopes and the relay. Extend it when behavior changes. UI smoke tests (`tests/ui`) fail on any console error or uncaught exception.
+
+## CI
+
+`.github/workflows/ci.yml` runs lint, typecheck, tests (Linux/macOS/Windows), DB schema, browser smoke tests, the macOS desktop build, Docker image builds with container checks, and actionlint. The aggregate job **"CI passed"** is the required check on `main`. Deploy workflows (`web.yml`, `supabase.yml`) skip until their secrets and variables exist.
 
 ## Code conventions
 
@@ -54,5 +61,5 @@ Run `pnpm typecheck` and `pnpm test` before committing. The e2e test (`packages/
 - The desktop bundle is ESM with a `createRequire` banner (`apps/desktop/build.mjs`). Anything path-based must resolve lazily, as `uiDir()` in `packages/node/src/server.ts` does with `SATCHEL_UI_DIR`, because bundled modules initialize before `main.ts` sets env.
 - React: effect callbacks must not return values. In current Chromium, `window.scrollTo` returns a Promise and crashed the app, so wrap effect bodies in braces. Avoid react-router's `<Navigate>`; use `useNavigate` inside an effect.
 - MCP SDK auth routers are created per origin (localhost vs public host), so their built-in rate limiters are disabled and a shared limiter is used instead.
-- Docker images, Let's Encrypt DNS-01, real Supabase/Cloudflare deploys and Web Push were never verified end to end. Treat them as untested.
+- Let's Encrypt DNS-01, real Supabase/Cloudflare deploys and Web Push were never verified end to end. Treat them as untested.
 - The `satchel.dev` domain is a placeholder. Deploy workflows skip until the Cloudflare/Supabase secrets and variables exist (see `report/mvp/site/index.html#cicd`).

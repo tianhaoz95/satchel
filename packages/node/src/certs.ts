@@ -40,7 +40,16 @@ export async function ensureCertificate(node: SatchelNode, opts: { force?: boole
     const pems = await generate([{ name: "commonName", value: host }], {
       keySize: 2048,
       algorithm: "sha256",
-      extensions: [{ name: "subjectAltName", altNames: [{ type: 2, value: host }, { type: 2, value: "localhost" }, { type: 7, ip: "127.0.0.1" }] }],
+      extensions: [
+        {
+          name: "subjectAltName",
+          altNames: [
+            { type: 2, value: host },
+            { type: 2, value: "localhost" },
+            { type: 7, ip: "127.0.0.1" },
+          ],
+        },
+      ],
     } as any);
     pair = { key: pems.private, cert: pems.cert, issuer: "self-signed" };
   }

@@ -9,7 +9,7 @@ export default function Login({ user }: { user: User | null }) {
   const navigate = useNavigate();
   useEffect(() => {
     if (user) void navigate("/portal", { replace: true });
-  }, [user]);
+  }, [user, navigate]);
   if (user) return null;
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +26,9 @@ export default function Login({ user }: { user: User | null }) {
       <form className="card narrow" onSubmit={submit}>
         <p className="eyebrow">Satchel account</p>
         <h1>Sign in</h1>
-        <p className="muted">An account gives you a relay address like <code>you.satchel.dev</code>. It stores your email and node names, never anything from your vault.</p>
+        <p className="muted">
+          An account gives you a relay address like <code>you.satchel.dev</code>. It stores your email and node names, never anything from your vault.
+        </p>
         {backend.demo && <p className="note">Demo mode: Supabase isn't configured, so this portal keeps data in your browser only.</p>}
         {error && <p className="error">{error}</p>}
         {sent ? (
@@ -38,8 +40,12 @@ export default function Login({ user }: { user: User | null }) {
               <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </label>
             <div className="row">
-              <button className="primary">Email me a link</button>
-              <button type="button" onClick={() => backend.signInWithGitHub().catch((e) => setError(e.message))}>Continue with GitHub</button>
+              <button type="submit" className="primary">
+                Email me a link
+              </button>
+              <button type="button" onClick={() => backend.signInWithGitHub().catch((e) => setError(e.message))}>
+                Continue with GitHub
+              </button>
             </div>
           </>
         )}

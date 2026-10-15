@@ -20,7 +20,14 @@ const shots: Array<[string, string, (() => Promise<void>)?]> = [
   ["activity", "admin-activity"],
   ["conventions", "admin-conventions"],
   ["security", "admin-security"],
-  ["phone", "admin-phone", async () => { await page.click("#pair"); await page.waitForSelector(".qr svg"); }],
+  [
+    "phone",
+    "admin-phone",
+    async () => {
+      await page.click("#pair");
+      await page.waitForSelector(".qr svg");
+    },
+  ],
   ["settings", "admin-settings"],
 ];
 for (const [hash, name, extra] of shots) {
@@ -50,7 +57,9 @@ pp.on("pageerror", (e) => console.error("pageerror", e.message));
 for (const tab of ["approvals", "inbox", "upcoming", "capture"]) {
   await pp.goto(`${base}/app/#${tab}`);
   await pp.waitForTimeout(500);
-  if (tab === "inbox") { await pp.click("[data-show]"); }
+  if (tab === "inbox") {
+    await pp.click("[data-show]");
+  }
   await pp.screenshot({ path: `${out}/phone-${tab}.png` });
 }
 const pair = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true });

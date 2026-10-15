@@ -27,7 +27,7 @@ export type ControlMessage =
   | { t: "pong" };
 
 export function send(sock: Socket, msg: ControlMessage) {
-  sock.write(JSON.stringify(msg) + "\n");
+  sock.write(`${JSON.stringify(msg)}\n`);
 }
 
 /** Reads one JSON line; any bytes after the newline are pushed back onto the socket. */
@@ -74,8 +74,7 @@ export function onLines(sock: Socket, fn: (msg: ControlMessage) => void) {
   sock.setEncoding("utf8");
   sock.on("data", (chunk: string) => {
     buf += chunk;
-    let nl: number;
-    while ((nl = buf.indexOf("\n")) !== -1) {
+    for (let nl = buf.indexOf("\n"); nl !== -1; nl = buf.indexOf("\n")) {
       const line = buf.slice(0, nl);
       buf = buf.slice(nl + 1);
       if (!line.trim()) continue;
@@ -119,7 +118,14 @@ export function parseSni(buf: Buffer): { host: string | null; complete: boolean 
       while (q + 3 <= p + len) {
         const nameType = buf[q];
         const nameLen = buf.readUInt16BE(q + 1);
-        if (nameType === 0) return { host: buf.subarray(q + 3, q + 3 + nameLen).toString("ascii").toLowerCase(), complete: true };
+        if (nameType === 0)
+          return {
+            host: buf
+              .subarray(q + 3, q + 3 + nameLen)
+              .toString("ascii")
+              .toLowerCase(),
+            complete: true,
+          };
         q += 3 + nameLen;
       }
     }

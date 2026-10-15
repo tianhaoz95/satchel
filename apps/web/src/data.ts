@@ -22,7 +22,12 @@ export const SUBDOMAIN_RE = /^[a-z0-9]([a-z0-9-]{1,30}[a-z0-9])$/;
 /** Node tokens are generated in the browser; only their SHA-256 hash is ever stored. */
 export async function newNodeToken(): Promise<{ token: string; hash: string }> {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
-  const token = "satchel_node_" + btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const token =
+    "satchel_node_" +
+    btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   const hash = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
   return { token, hash };
@@ -135,14 +140,27 @@ class DemoBackend implements Backend {
   }
   async createNode(name: string, subdomain: string) {
     const nodes = await this.listNodes();
-    if (nodes.some((n) => n.subdomain === subdomain) || ["www", "relay", "tunnel", "api", "app"].includes(subdomain)) throw new Error("That subdomain is taken.");
-    const row: NodeRow = { id: crypto.randomUUID(), name, subdomain, created_at: new Date().toISOString(), revoked_at: null, online: false, last_seen_at: null, reported_name: null };
+    if (nodes.some((n) => n.subdomain === subdomain) || ["www", "relay", "tunnel", "api", "app"].includes(subdomain))
+      throw new Error("That subdomain is taken.");
+    const row: NodeRow = {
+      id: crypto.randomUUID(),
+      name,
+      subdomain,
+      created_at: new Date().toISOString(),
+      revoked_at: null,
+      online: false,
+      last_seen_at: null,
+      reported_name: null,
+    };
     this.write("demo_nodes", [...nodes, row]);
     return row;
   }
   async rotateToken() {}
   async revokeNode(id: string) {
-    this.write("demo_nodes", (await this.listNodes()).map((n) => (n.id === id ? { ...n, revoked_at: new Date().toISOString(), online: false } : n)));
+    this.write(
+      "demo_nodes",
+      (await this.listNodes()).map((n) => (n.id === id ? { ...n, revoked_at: new Date().toISOString(), online: false } : n)),
+    );
   }
   async deleteAccount() {
     localStorage.removeItem("demo_nodes");

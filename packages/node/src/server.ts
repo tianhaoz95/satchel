@@ -81,7 +81,10 @@ export function createApp(node: SatchelNode) {
     await transport.handleRequest(req, res, req.body);
   });
   const notAllowed = (_req: Request, res: Response) =>
-    res.status(405).set("Allow", "POST").json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed (stateless server)" }, id: null });
+    res
+      .status(405)
+      .set("Allow", "POST")
+      .json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed (stateless server)" }, id: null });
   app.get("/mcp", notAllowed);
   app.delete("/mcp", notAllowed);
 
@@ -113,7 +116,10 @@ function rateLimiter(max: number, windowMs: number): express.RequestHandler {
     const key = req.socket.remoteAddress ?? "?";
     const now = Date.now();
     let h = hits.get(key);
-    if (!h || h.reset < now) hits.set(key, (h = { n: 0, reset: now + windowMs }));
+    if (!h || h.reset < now) {
+      h = { n: 0, reset: now + windowMs };
+      hits.set(key, h);
+    }
     if (++h.n > max) return void res.status(429).json({ error: "too_many_requests" });
     next();
   };
